@@ -16,5 +16,6 @@ Github
 Documents
 ---------
 * https://www.ida.liu.se/~TDDI04/material/begguide/
+* http://web.ics.purdue.edu/~cs354/Nachos/index.html
 * http://blog.csdn.net/lwtcz819/article/details/6323249
 * http://www.cs.nyu.edu/courses/spring05/V22.0202-001/
