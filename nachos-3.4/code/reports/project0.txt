@@ -1,0 +1,35 @@
+Project 0
+
+Name: Long Wang
+PID: 4138279
+Email: lwang033@fiu.edu
+
+Name: Wenrui Ma
+PID: 4672552
+Email: wma006@fiu.edu
+
+Name: Wei Xue
+PID: 4053644
+Email: wxue004@fiu.edu
+
+a) experience installing Nachos w/ platform details
+1. We download Nachos-3.4 from its homepage on the University of
+Washington website. The source code of Nachos 3.4 is written in
+1994. Without any modification, we get compiling errors even on the
+service nachos.cs.fiu.edu. Following the Linux patch for Nachos
+(http://homes.cs.washington.edu/~tom/nachos/linux.patch) and other
+online resource, we change a few lines of the following files, and
+add gnu-decstation-ultrix package. Finally, we find a patched nachos
+Linux version on NYU OS course page,
+http://www.cs.nyu.edu/courses/spring05/V22.0202-001/nachos-resources.htm. It
+passes compiling and running on nachos.cs.fiu.edu.
+
+b) your experience w/ the tests
+The output of running theads/nachos is exacty the same as moodle provided.
+The output of running userprog/nachos -x test/halt contains 'Machine
+halting' and other statistics. The system call 'Halt' can be found in
+machine/interrupt.cc Line 240, where the runnign prints out 'Machine
+halting'.
+The 
+
+c) A description of the Thread class in Nachos. Please be breif. 
