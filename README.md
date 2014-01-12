@@ -15,7 +15,8 @@ Github
 
 Documents
 ---------
-* https://www.ida.liu.se/~TDDI04/material/begguide/
-* http://web.ics.purdue.edu/~cs354/Nachos/index.html
-* http://blog.csdn.net/lwtcz819/article/details/6323249
+* https://www.ida.liu.se/~TDDI04/material/begguide/ - 必看
+* http://web.ics.purdue.edu/~cs354/Nachos/index.html - 必看
+* http://www.cs.nyu.edu/courses/spring02/V22.0202-001/nachos-resources.htm - 必看roadmap
 * http://www.cs.nyu.edu/courses/spring05/V22.0202-001/
+* http://blog.csdn.net/lwtcz819/article/details/6323249
