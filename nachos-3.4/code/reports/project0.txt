@@ -30,6 +30,12 @@ The output of running userprog/nachos -x test/halt contains 'Machine
 halting' and other statistics. The system call 'Halt' can be found in
 machine/interrupt.cc Line 240, where the runnign prints out 'Machine
 halting'.
-The 
+The output of running  userprog/nachos -s -x test/halt displays the
+status of nachos executing instructions in single step. The output
+includes the values of 40 registers.
 
 c) A description of the Thread class in Nachos. Please be breif. 
+This class implements Nachos user process of Nachos. It has stacks,
+therad status. The operatioins, Yield, Sleep, Finish, Fork, could
+switch the thread between these status. And some functions manipulate
+two sets of registrations.
