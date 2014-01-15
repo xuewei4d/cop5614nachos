@@ -1,6 +1,6 @@
 Project 0
 
-Name: Long Wang
+name: Long Wang
 PID: 4138279
 Email: lwang033@fiu.edu
 
@@ -15,7 +15,9 @@ Email: wxue004@fiu.edu
 a) experience installing Nachos w/ platform details
 1. We download Nachos-3.4 from its homepage on the University of
 Washington website. The source code of Nachos 3.4 is written in
-1994. Without any modification, we get compiling errors even on the
+1994. Then we tried to connect to the server nachos.cs.fiu.edu with
+our CIS account, after that, we follow the instructions on the moodle.
+without any modification, we get compiling errors even on the
 service nachos.cs.fiu.edu. Following the Linux patch for Nachos
 (http://homes.cs.washington.edu/~tom/nachos/linux.patch) and other
 online resource, we change a few lines of the following files, and
