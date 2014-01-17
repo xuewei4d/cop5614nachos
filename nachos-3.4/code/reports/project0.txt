@@ -38,6 +38,7 @@ includes the values of 40 registers.
 
 c) A description of the Thread class in Nachos. Please be breif. 
 This class implements Nachos user process of Nachos. It has stacks,
-therad status. The operatioins, Yield, Sleep, Finish, Fork, could
-switch the thread between these status. And some functions manipulate
-two sets of registrations.
+therad status, the operatioins, Yield, Sleep, Finish, Fork, which could
+switch the thread between these status. And it also include some
+functions that can manipulate two sets of registrations and some
+functions that deal with context switching.
