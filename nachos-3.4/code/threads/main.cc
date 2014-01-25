@@ -58,8 +58,13 @@ extern int testnum;
 #endif
 
 // External functions used by this file
-
+#if defined(CHANGED) && defined(THREADS)
+/* put your changed code here */
+extern void ThreadTest(int), Copy(char *unixFile, char *nachosFile);
+#else
+/* the original code goes here */
 extern void ThreadTest(void), Copy(char *unixFile, char *nachosFile);
+#endif
 extern void Print(char *file), PerformanceTest(void);
 extern void StartProcess(char *file), ConsoleTest(char *in, char *out);
 extern void MailTest(int networkID);
@@ -100,8 +105,14 @@ main(int argc, char **argv)
         break;
       }
     }
-
+#if defined(CHANGED) && defined(THREADS)
+/* put your changed code here */
+    ThreadTest(4);
+#else
+/* the original code goes here */
     ThreadTest();
+#endif
+
 #endif
 
     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
