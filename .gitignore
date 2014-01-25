@@ -5,6 +5,7 @@
 *.Plo
 build/
 objs/
+docs/
 
 # Compiled Object files
 *.slo

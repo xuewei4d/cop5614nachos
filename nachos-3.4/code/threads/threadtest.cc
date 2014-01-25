@@ -23,7 +23,25 @@ int testnum = 1;
 //	"which" is simply a number identifying the thread, for debugging
 //	purposes.
 //----------------------------------------------------------------------
+#if defined(CHANGED) && defined(THREADS)
+/* put your changed code here */
 
+int SharedVariable; 
+void SimpleThread(int which) { 
+ int num, val; 
+ for(num = 0; num < 5; num++) { 
+ val = SharedVariable; 
+ printf("*** thread %d sees value %d\n", which, val); 
+ currentThread->Yield(); 
+ SharedVariable = val+1; 
+ currentThread->Yield(); 
+ } 
+ val = SharedVariable; 
+ printf("Thread %d sees final value %d\n", which, val); 
+} 
+
+#else
+/* the original code goes here */
 void
 SimpleThread(int which)
 {
@@ -34,6 +52,7 @@ SimpleThread(int which)
         currentThread->Yield();
     }
 }
+#endif
 
 //----------------------------------------------------------------------
 // ThreadTest1
@@ -57,6 +76,19 @@ ThreadTest1()
 // 	Invoke a test routine.
 //----------------------------------------------------------------------
 
+#if defined(CHANGED) && defined(THREADS)
+/* put your changed code here */
+void ThreadTest(int n) {
+  for (int i = 1; i <= n; ++i) {
+    DEBUG('t', "Entering ThreadTest %d\n", i);
+    Thread *t = new Thread("forked thread");
+
+    t->Fork(SimpleThread, i);
+  }
+  SimpleThread(0);
+}
+#else
+/* the original code goes here */
 void
 ThreadTest()
 {
@@ -69,4 +101,4 @@ ThreadTest()
 	break;
     }
 }
-
+#endif
