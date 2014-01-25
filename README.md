@@ -3,7 +3,7 @@ cop5614nachos
 
 Github
 ------
-* https://github.com/jrivera777/Nachos - exactly the same
+* https://github.com/jrivera777/Nachos 必看
 * https://github.com/MrOrz/nachos
 * https://github.com/ryeyao/Nachos
 * https://github.com/lihao814386741/nachos-3.4
