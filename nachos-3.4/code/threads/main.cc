@@ -100,8 +100,14 @@ main(int argc, char **argv)
         break;
       }
     }
-
+#if defined(CHANGED) && defined(THREADS)
+/* put your changed code here */
+    ThreadTest(4);
+#else
+/* the original code goes here */
     ThreadTest();
+#endif
+
 #endif
 
     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
