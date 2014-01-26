@@ -6,6 +6,7 @@
 build/
 objs/
 docs/
+nachos
 
 # Compiled Object files
 *.slo
