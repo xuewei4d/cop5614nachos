@@ -1,0 +1,20 @@
+Project 1 Report
+
+Exercise 1
+We change the definition of threadtest(int) as well as the declaration,
+and modify the function of simplethread(). The new threadtest(int)
+creates N new threads, all of which execute 5 times a loop defined in
+simplethread(). In this loop, a thread reads and writes a shared
+variable. After its first reading and just before it writes the variable
+back with one increment, the thread yiels the CPU control to other
+threads. After it finishing the writing, it yiels again before the
+final reading.
+
+The Yield operation cause context switching between multiple
+threads. One thread overwrites the modification to shared variable
+made by other threads, which resulting in incorrect increment of the
+shared variable.
+
+Without any syrnchronization technique, when we run Threadtest(4)
+creating threads numbered by 0,1,2,3,4, at the end, these threads
+update the shared variable to 5.

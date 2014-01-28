@@ -58,7 +58,7 @@ extern int testnum;
 #endif
 
 // External functions used by this file
-#if defined(CHANGED) && defined(THREADS)
+#if defined(CHANGED)
 /* put your changed code here */
 extern void ThreadTest(int), Copy(char *unixFile, char *nachosFile);
 #else
@@ -105,7 +105,7 @@ main(int argc, char **argv)
         break;
       }
     }
-#if defined(CHANGED) && defined(THREADS)
+#if defined(CHANGED)
 /* put your changed code here */
     ThreadTest(4);
 #else
