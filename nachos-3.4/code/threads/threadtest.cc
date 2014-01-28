@@ -12,6 +12,11 @@
 #include "copyright.h"
 #include "system.h"
 
+#if defined(CHANGED)
+ /* put your changed code here */
+#include "synch.h"
+#endif
+
 // testnum is set in main.cc
 int testnum = 1;
 
@@ -23,22 +28,68 @@ int testnum = 1;
 //	"which" is simply a number identifying the thread, for debugging
 //	purposes.
 //----------------------------------------------------------------------
-#if defined(CHANGED) && defined(THREADS)
-/* put your changed code here */
+#if defined(CHANGED) && defined(HW1_NOSEMAPHORES)
+/* Exercise 1 changed code before using semaphore */
 
 int SharedVariable; 
 void SimpleThread(int which) { 
- int num, val; 
- for(num = 0; num < 5; num++) { 
- val = SharedVariable; 
- printf("*** thread %d sees value %d\n", which, val); 
- currentThread->Yield(); 
- SharedVariable = val+1; 
- currentThread->Yield(); 
- } 
- val = SharedVariable; 
- printf("Thread %d sees final value %d\n", which, val); 
-} 
+  int num, val; 
+  for(num = 0; num < 5; num++) { 
+    val = SharedVariable; 
+    printf("*** thread %d sees value %d\n", which, val); 
+    currentThread->Yield(); 
+    SharedVariable = val+1; 
+    currentThread->Yield(); 
+  } 
+  val = SharedVariable; 
+  printf("Thread %d sees final value %d\n", which, val); 
+}
+ 
+#elif defined(CHANGED) && defined(HW1_SEMAPHORES) 
+/* Exercise 1 changed code using semaphore */
+int SharedVariable;
+
+Semaphore sp("HW1_SEMAPHORES", 1);
+
+/* Barrier implementation */
+int threads_num = 0;
+int count = 0;
+Semaphore mx("BARRIER_COUNTER_MUTEX", 1);
+Semaphore br("BARRIER", 0);
+/* Barrier implementation */
+ 
+void SimpleThread(int which) 
+{ 
+  int num, val; 
+  for(num = 0; num < 5; num++) {
+    // semaphore P signal
+    sp.P();
+
+    val = SharedVariable; 
+    printf("*** thread %d sees value %d\n", which, val); 
+    currentThread->Yield(); 
+    SharedVariable = val+1;
+
+    // semaphore V signal
+    sp.V();
+
+    currentThread->Yield(); 
+  }
+
+  /* barrier */
+  mx.P();
+  count = count + 1;
+  mx.V();
+
+  if(count == threads_num)
+    br.V();
+  br.P();
+  br.V();
+  /* barrier */
+
+  val = SharedVariable; 
+  printf("Thread %d sees final value %d\n", which, val); 
+}
 
 #else
 /* the original code goes here */
@@ -76,9 +127,10 @@ ThreadTest1()
 // 	Invoke a test routine.
 //----------------------------------------------------------------------
 
-#if defined(CHANGED) && defined(THREADS)
+#if defined(CHANGED)
 /* put your changed code here */
 void ThreadTest(int n) {
+  threads_num = n;
   for (int i = 1; i <= n; ++i) {
     DEBUG('t', "Entering ThreadTest %d\n", i);
     Thread *t = new Thread("forked thread");
