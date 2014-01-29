@@ -52,7 +52,6 @@ int SharedVariable;
 Semaphore sp("HW1_SEMAPHORES", 1);
 
 /* Barrier implementation */
-int threads_num = 0;
 int count = 0;
 Semaphore mx("BARRIER_COUNTER_MUTEX", 1);
 Semaphore br("BARRIER", 0);
@@ -81,7 +80,52 @@ void SimpleThread(int which)
   count = count + 1;
   mx.V();
 
-  if(count == threads_num)
+  if(count == testnum)
+    br.V();
+  br.P();
+  br.V();
+  /* barrier */
+
+  val = SharedVariable; 
+  printf("Thread %d sees final value %d\n", which, val); 
+}
+
+#elif defined(CHANGED) && defined(HW1_LOCKS) 
+/* Exercise 2 changed code using Lock */
+int SharedVariable;
+
+Lock lk("HW1_LOCKS");
+
+/* Barrier implementation */
+int count = 0;
+Semaphore mx("BARRIER_COUNTER_MUTEX", 1);
+Semaphore br("BARRIER", 0);
+/* Barrier implementation */
+ 
+void SimpleThread(int which) 
+{ 
+  int num, val; 
+  for(num = 0; num < 5; num++) {
+    // semaphore P signal
+    lk.Acquire();
+
+    val = SharedVariable; 
+    printf("*** thread %d sees value %d\n", which, val); 
+    currentThread->Yield(); 
+    SharedVariable = val+1;
+
+    // semaphore V signal
+    lk.Release();
+
+    currentThread->Yield(); 
+  }
+
+  /* barrier */
+  mx.P();
+  count = count + 1;
+  mx.V();
+
+  if(count == testnum)
     br.V();
   br.P();
   br.V();
@@ -122,15 +166,17 @@ ThreadTest1()
     SimpleThread(0);
 }
 
-//----------------------------------------------------------------------
-// ThreadTest
-// 	Invoke a test routine.
-//----------------------------------------------------------------------
 
 #if defined(CHANGED)
-/* put your changed code here */
+
+//----------------------------------------------------------------------
+// ThreadTest (n)
+// 	Invoke a test routine. Fork n *new* threads, which means there 
+//      will be n + 1 threads running
+//----------------------------------------------------------------------
+
 void ThreadTest(int n) {
-  threads_num = n;
+  testnum = n + 1;
   for (int i = 1; i <= n; ++i) {
     DEBUG('t', "Entering ThreadTest %d\n", i);
     Thread *t = new Thread("forked thread");
