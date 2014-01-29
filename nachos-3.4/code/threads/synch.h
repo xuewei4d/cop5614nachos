@@ -78,8 +78,14 @@ class Lock {
 					// Condition variable ops below.
 
   private:
-    char* name;				// for debugging
+    char* name;		        // for debugging
+#if defined(CHANGED) && defined(HW1_LOCKS)   
     // plus some other stuff you'll need to define
+
+    bool isHeld;                // lock status
+    Thread* lockHolder;         // thread holding the lock
+    List *queue;                // thread waiting in Acquire() for the lock
+#endif
 };
 
 // The following class defines a "condition variable".  A condition

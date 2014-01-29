@@ -1,16 +1,30 @@
 Project 1 Report
 
+------------------------------------------------------------------------
+To compile this project correctly, in the file threads/makefile, the
+compilations flags must be set correctly. To test 
+
+Project 1 Exercise 1 without SEMAPHORES, change DEFINES = -DTHREADS to
+-DTHREADS -HW1_NOSEMAPHORES
+
+Project 1 Exercise 1 using SEMAPHORES, change DEFINES = -DTHREADS to
+-DTHREADS -HW1_SEMAPHORES
+  
+Project 1 Exercise 2 LOCKS, change DEFINES = -DTHREADS to
+-DTHREADS -HW1_LOCKS
+
+------------------------------------------------------------------------
 Exercise 1
-We change the definition of threadtest(int) as well as the declaration,
-and modify the function of simplethread(). The new threadtest(int)
+We change the definition of ThreadTest(int) as well as the declaration,
+and modify the function of SimpleThread(). The new ThreadTest(int)
 creates N new threads, all of which execute 5 times a loop defined in
-simplethread(). In this loop, a thread reads and writes a shared
+SimpleThread(). In this loop, a thread reads and writes a shared
 variable. After its first reading and just before it writes the variable
 back with one increment, the thread yiels the CPU control to other
 threads. After it finishing the writing, it yiels again before the
 final reading.
 
-The Yield operation cause context switching between multiple
+The Yield() operation cause context switching between multiple
 threads. One thread overwrites the modification to shared variable
 made by other threads, which resulting in incorrect increment of the
 shared variable.
@@ -18,3 +32,33 @@ shared variable.
 Without any syrnchronization technique, when we run Threadtest(4)
 creating threads numbered by 0,1,2,3,4, at the end, these threads
 update the shared variable to 5.
+
+After SimpleThread() is properly synchronized with semaphores, the
+critical section where the shared variable increases, is surrounded by
+a P() and a V() call. Even after the current thread call Yield(), the
+other threads cannot execute because they are blocked in their P()
+call. The scheduler will pick the original thread who is executing
+the critical section to run. Therefore, in this case, semaphores
+guarantee the correctness of synchronization. 
+
+The implementation of Barrier also envolves the useage of
+semaphores. The increment of shared variable *count* is synchronized
+by a mutex. Before all threads reach the final print statement, they
+are waiting in the P() call of *barrier* tunstile. When the *count*
+equals the total number of executing threads, *barrier* tunstile
+signals and the blocked threads pass the *barrier* P() call one by one
+as a result of the mechanism of tunstile.
+
+------------------------------------------------------------------------
+Exercise 2
+
+Lock behaves like sempaphore, except the ownership of lock. In the
+implementation, a bool variable *isHeld* indicates whether the lock is
+held or not. The variable *lockHolder* bookkeeps the owner of the
+lock. The *queue* stores the blocked threads waiting for the
+lock. When one thread attemps to acquire the lock, lock will test the
+availability of *isHeld*. If succeeds, *isHeld* becomes TRUE,
+*lockHelder* points to this threads. When a thread tries to release
+the lock, the ownership is tested to prevent other non-holders to
+release the lock. Finally, like semaphores, correctly using Lock
+within SimpleThread() make the correct increment of the shard variable.

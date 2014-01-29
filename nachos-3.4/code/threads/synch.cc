@@ -97,13 +97,95 @@ Semaphore::V()
     (void) interrupt->SetLevel(oldLevel);
 }
 
+#if defined(CHANGED) && defined(HW1_LOCKS)
+
+//----------------------------------------------------------------------
+// Lock::Lock
+// 	Initialize a lock, so that it can be used for synchronization.
+//
+//      "debugName" is an arbitrary name, usefuly for debugging.
+//----------------------------------------------------------------------
+
+Lock::Lock(char* debugName) : name(debugName), isHeld(FALSE), lockHolder( NULL), queue(new List)
+{
+  
+}
+
+//----------------------------------------------------------------------
+// Lock::~Lock
+// 	De-allocate Lock, when no longer needed.  Assume no one
+//	is still waiting on the Lock!
+//----------------------------------------------------------------------
+
+Lock::~Lock()
+{
+  delete queue;
+}
+
+//----------------------------------------------------------------------
+// Lock::Acquire
+// 	Wait until isHeld == FALSE, then set isHeld TRUE, lockHodler as 
+//      currentThread.   
+//
+//----------------------------------------------------------------------
+
+void Lock::Acquire()
+{
+  IntStatus oldLevel = interrupt->SetLevel(IntOff);
+  while (isHeld) {
+    queue->Append((void *)currentThread);
+    currentThread->Sleep();
+  }
+  isHeld = TRUE;
+  lockHolder = currentThread;
+  (void) interrupt->SetLevel(oldLevel);
+}
+
+//----------------------------------------------------------------------
+// Lock::Release
+// 	 If the lockHoder attemps to release the lock, set isHeld FALSE, 
+//       lockHolder NULL, waking up a waiter if necessary; otherwise,
+//       the lock cannot be released.
+//----------------------------------------------------------------------
+
+void Lock::Release() 
+{
+  Thread *thread;
+  IntStatus oldLevel = interrupt->SetLevel(IntOff);
+  if (isHeldByCurrentThread()) {
+    DEBUG('t',"The Lock is held by current thread!");
+
+    thread = (Thread *)queue->Remove();
+    if (thread != NULL)
+      scheduler->ReadyToRun(thread);
+    isHeld = FALSE;
+    lockHolder = NULL;
+  }
+  else
+    DEBUG('t',"Error: The Lock is held by another thread or not acquired!");
+  (void) interrupt->SetLevel(oldLevel);
+  
+}
+
+//----------------------------------------------------------------------
+// Lock::isHeldByCurrentThread
+//	Test if the lockHolder is attempting to release the lock
+//----------------------------------------------------------------------
+
+bool Lock::isHeldByCurrentThread()
+{
+  return lockHolder == currentThread;
+}
+#else
 // Dummy functions -- so we can compile our later assignments 
 // Note -- without a correct implementation of Condition::Wait(), 
 // the test case in the network assignment won't work!
+
 Lock::Lock(char* debugName) {}
 Lock::~Lock() {}
 void Lock::Acquire() {}
 void Lock::Release() {}
+#endif
 
 Condition::Condition(char* debugName) { }
 Condition::~Condition() { }
