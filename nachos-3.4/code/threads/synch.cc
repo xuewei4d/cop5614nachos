@@ -187,8 +187,81 @@ void Lock::Acquire() {}
 void Lock::Release() {}
 #endif
 
-Condition::Condition(char* debugName) { }
-Condition::~Condition() { }
-void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
-void Condition::Signal(Lock* conditionLock) { }
-void Condition::Broadcast(Lock* conditionLock) { }
+
+//----------------------------------------------------------------------
+// Condition::Condition
+// 	Initialize a condition object.
+// 	Assume "no one waiting".
+//----------------------------------------------------------------------
+
+
+Condition::Condition(char* debugName) 
+{
+	name=debugName;
+	queue=new List;
+}
+
+//----------------------------------------------------------------------
+// Condition::~Condition
+// 	Deallocate a conditon object, when it is no longer needed.
+//----------------------------------------------------------------------
+
+
+Condition::~Condition() 
+{
+	delete queue;
+}
+
+//----------------------------------------------------------------------
+// Condition::~Condition
+// 	Deallocate a conditon object, when it is no longer needed.
+//----------------------------------------------------------------------
+
+void Condition::Wait(Lock* conditionLock) 
+{ 
+	//ASSERT(FALSE);
+
+	IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupt 
+
+	if(conditionLock->isHeldByCurrentThread())
+	{
+		conditionLock->Release();
+		queue->Append((void *)currentThread);
+		currentThread->Sleep();
+		conditionLock->Acquire();
+	}
+	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+
+}
+void Condition::Signal(Lock* conditionLock) 
+{
+	Thread *thread;
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	if(coditionLock->isHeldByCurrentThread())
+	{
+		if(!queue->IsEmpty())
+		{
+			thread = (Thread *)queue->Remove();
+			if(thread != NULL)
+			{
+				scheduler->ReadyToRun(thread);//make the thread ready
+			}
+		}
+	}
+	       
+}
+void Condition::Broadcast(Lock* conditionLock) 
+{
+	Thread *thread; 
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	if(conditionLock->isHeldByCurrentThread())
+	{
+	   	while(!queue->IsEmpty())
+		{	
+			thread = (Thread *)queue->Remove();
+			if(thread != NULL)
+				scheduler->ReadyToRun(thread); // make thread ready
+		}
+	}
+	(void) interrupt->SetLevel(oldLevel);
+}
