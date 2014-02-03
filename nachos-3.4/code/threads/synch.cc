@@ -187,8 +187,96 @@ void Lock::Acquire() {}
 void Lock::Release() {}
 #endif
 
-Condition::Condition(char* debugName) { }
-Condition::~Condition() { }
-void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
-void Condition::Signal(Lock* conditionLock) { }
-void Condition::Broadcast(Lock* conditionLock) { }
+//----------------------------------------------------------------------
+// Condition::Condition
+// 	Initialize a condition object.
+// 	Assume "no one waiting".
+//----------------------------------------------------------------------
+
+
+Condition::Condition(char* debugName) 
+{
+	name=debugName;
+	queue=new List;
+}
+
+//----------------------------------------------------------------------
+// Condition::~Condition
+// 	Deallocate a conditon object, when it is no longer needed.
+//----------------------------------------------------------------------
+
+
+Condition::~Condition() 
+{
+	delete queue;
+}
+
+//----------------------------------------------------------------------
+// Condition::Wait
+// 	This function waits for a condition to become free and then 
+// 	acquires the conditionLock for the current thread.
+//----------------------------------------------------------------------
+
+void Condition::Wait(Lock* conditionLock) 
+{ 
+	//ASSERT(FALSE);
+
+	IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupt 
+
+	if(conditionLock->isHeldByCurrentThread())        //checking if the lock is hold by the current thread
+	{
+		conditionLock->Release();    
+		queue->Append((void *)currentThread);     //After lock was released, appending the current thread to condition queue
+		currentThread->Sleep();                   //The thread will sleep
+		conditionLock->Acquire();                 //When the thead is awake, acquire lock.
+	}
+	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+
+}
+
+//----------------------------------------------------------------------
+// Condition::Signal
+// 	 This function wakes up one of the threads that is waiting on
+// 	 the condition.
+//----------------------------------------------------------------------
+
+void Condition::Signal(Lock* conditionLock) 
+{
+	Thread *thread;
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);  // disable interrupts
+	if(coditionLock->isHeldByCurrentThread())
+	{
+		if(!queue->IsEmpty())                      // when condition waiting queue is not empty, continue
+		{
+			thread = (Thread *)queue->Remove();   //wake up a thread waiting for the condition
+			if(thread != NULL)
+			{
+				scheduler->ReadyToRun(thread);//make the thread ready
+			}
+		}
+	}
+	(void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
+	       
+}
+
+//----------------------------------------------------------------------
+// Condition::Broadcast
+// 	 This function wakes up all threads that are waiting on
+// 	 the condition.
+//----------------------------------------------------------------------
+void Condition::Broadcast(Lock* conditionLock) 
+{
+	Thread *thread; 
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);     // disable interrupts
+	if(conditionLock->isHeldByCurrentThread())
+	{
+	   	while(!queue->IsEmpty())                      //wake up all threads waiting for the conditon
+		{	
+			thread = (Thread *)queue->Remove();
+			if(thread != NULL)
+				scheduler->ReadyToRun(thread); // make thread ready
+		}
+	}
+	(void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
+}
+

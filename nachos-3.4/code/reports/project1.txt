@@ -62,3 +62,9 @@ availability of *isHeld*. If succeeds, *isHeld* becomes TRUE,
 the lock, the ownership is tested to prevent other non-holders to
 release the lock. Finally, like semaphores, correctly using Lock
 within SimpleThread() make the correct increment of the shard variable.
+
+------------------------------------------------------------------------
+Exercise 3
+
+Exercise 3 has been completed.
+
