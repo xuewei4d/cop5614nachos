@@ -187,8 +187,13 @@ void Lock::Acquire() {}
 void Lock::Release() {}
 #endif
 
+#if defined(CHANGED)
+
+
+#else
 Condition::Condition(char* debugName) { }
 Condition::~Condition() { }
 void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
 void Condition::Signal(Lock* conditionLock) { }
 void Condition::Broadcast(Lock* conditionLock) { }
+#endif
