@@ -135,6 +135,13 @@ void SimpleThread(int which)
   printf("Thread %d sees final value %d\n", which, val); 
 }
 
+#if defined(CHANGED) && defined(HW1_CONDITIONS)
+
+
+
+
+
+
 #else
 /* the original code goes here */
 void
