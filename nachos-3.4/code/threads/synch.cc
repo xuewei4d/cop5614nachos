@@ -187,7 +187,7 @@ void Lock::Acquire() {}
 void Lock::Release() {}
 #endif
 
-#if defined(CHANGED)
+#if defined(CHANGED) && defined(HW1_CONDITIONS)
 
 //----------------------------------------------------------------------
 // Condition::Condition
