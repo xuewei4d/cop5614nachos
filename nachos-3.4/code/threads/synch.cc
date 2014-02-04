@@ -199,7 +199,7 @@ void Lock::Release() {}
 Condition::Condition(char* debugName) 
 {
 	name=debugName;
-	cqueue=new List;
+	queue=new List;
 }
 
 //----------------------------------------------------------------------
@@ -227,7 +227,8 @@ void Condition::Wait(Lock* conditionLock)
 
 	if(conditionLock->isHeldByCurrentThread())        //checking if the lock is hold by the current thread
 	{
-		conditionLock->Release();    
+		conditionLock->Release();  
+		DEBUG('t',"***%s about to wait on %s\n", currentThread->getName(), name);
 		queue->Append((void *)currentThread);     //After lock was released, appending the current thread to condition queue
 		currentThread->Sleep();                   //The thread will sleep
 		conditionLock->Acquire();                 //When the thead is awake, acquire lock.
@@ -254,6 +255,7 @@ void Condition::Signal(Lock* conditionLock)
 			if(thread != NULL)
 			{
 				scheduler->ReadyToRun(thread);//make the thread ready
+				DEBUG('t',"***%s signals on %s\n", currentThread->getName(), name);
 			}
 		}
 	}
@@ -277,6 +279,7 @@ void Condition::Broadcast(Lock* conditionLock)
 			thread = (Thread *)queue->Remove();
 			if(thread != NULL)
 				scheduler->ReadyToRun(thread); // make thread ready
+				DEBUG('t',"***%s broadcasts on %s\n", currentThread->getName(), name);
 		}
 	}
 	(void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
