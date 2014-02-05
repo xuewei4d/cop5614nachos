@@ -229,9 +229,10 @@ void Condition::Wait(Lock* conditionLock)
 	{
 		conditionLock->Release();  
 		DEBUG('t',"***%s about to wait on %s\n", currentThread->getName(), name);
-		queue->Append((void *)currentThread);     //After lock was released, appending the current thread to condition queue
-		currentThread->Sleep();                   //The thread will sleep
-		conditionLock->Acquire();                 //When the thead is awake, acquire lock.
+		queue->Append((void *)currentThread);     //After lock was released, appending the current thread to 
+							  //condition queue
+		currentThread->Sleep();                   //The thread will be blocked
+		conditionLock->Acquire();                 //When the thead is awoken, reacquire a lock.
 	}
 	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
 
