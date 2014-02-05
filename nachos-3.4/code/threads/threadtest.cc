@@ -182,9 +182,6 @@ void SimpleThread(int which)
 }
 
 
-
-
-
 #else
 /* the original code goes here */
 void
