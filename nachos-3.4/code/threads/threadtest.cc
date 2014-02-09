@@ -135,6 +135,53 @@ void SimpleThread(int which)
   printf("Thread %d sees final value %d\n", which, val); 
 }
 
+#if defined(CHANGED) && defined(HW1_CONDITIONS)
+
+/* Exercise 2 changed code using Lock */
+int SharedVariable;
+
+Condition cd("HW1_CONDITIONS");
+
+/* Barrier implementation */
+int count = 0;
+Semaphore mx("BARRIER_COUNTER_MUTEX", 1);
+Semaphore br("BARRIER", 0);
+/* Barrier implementation */
+ 
+void SimpleThread(int which) 
+{ 
+  int num, val; 
+  for(num = 0; num < 5; num++) {
+    // semaphore P signal
+    cd.Wait();
+
+    val = SharedVariable; 
+    printf("*** thread %d sees value %d\n", which, val); 
+    currentThread->Yield(); 
+    SharedVariable = val+1;
+
+    // semaphore V signal
+    cd.Signal();
+
+    currentThread->Yield(); 
+  }
+
+  /* barrier */
+  mx.P();
+  count = count + 1;
+  mx.V();
+
+  if(count == testnum)
+    br.V();
+  br.P();
+  br.V();
+  /* barrier */
+
+  val = SharedVariable; 
+  printf("Thread %d sees final value %d\n", which, val); 
+}
+
+
 #else
 /* the original code goes here */
 void

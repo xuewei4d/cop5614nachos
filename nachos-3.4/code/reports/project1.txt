@@ -13,6 +13,7 @@ Project 1 Exercise 1 using SEMAPHORES, change DEFINES = -DTHREADS to
 Project 1 Exercise 2 LOCKS, change DEFINES = -DTHREADS to
 -DTHREADS -HW1_LOCKS
 
+
 ------------------------------------------------------------------------
 Exercise 1
 We change the definition of ThreadTest(int) as well as the declaration,
@@ -62,3 +63,23 @@ availability of *isHeld*. If succeeds, *isHeld* becomes TRUE,
 the lock, the ownership is tested to prevent other non-holders to
 release the lock. Finally, like semaphores, correctly using Lock
 within SimpleThread() make the correct increment of the shard variable.
+
+
+------------------------------------------------------------------------
+Exercise 3
+
+A condition variable is a synchronization primitive that does not have a value
+to check internally during its function calls (unlike a semaphore or a lock), 
+but threads may still be queued to wait on the condition. Regarding waiting, we 
+mean they are switched to blocked state via a sleep() call. The Wait() function 
+judges if the lock passed in is acquired by the thread calling it. Before 
+putting itself to sleep, the thread releases the lock, for use by other threads.
+Once, another thread performs a Signal() or Broadcast(), a thread that was waiting
+on the condition will be awoken, and attempt to re-acquire the lock. The Signal()
+function wakes a single thread waiting on the condition, while the Broadcast()
+function wakes all threads waiting on the condition. These functions can only
+work successfully if the thread calling them has acquired the Lock passed to them.
+
+Finally, we successfully use Condition during the next exercise 4.
+
+
