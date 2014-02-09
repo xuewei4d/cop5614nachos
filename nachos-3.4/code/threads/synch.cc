@@ -246,7 +246,7 @@ void Condition::Signal(Lock* conditionLock)
 {
   Thread *thread;
   IntStatus oldLevel = interrupt->SetLevel(IntOff);  // disable interrupts
-  if(coditionLock->isHeldByCurrentThread())
+  if(conditionLock->isHeldByCurrentThread())
     {
       
       thread = (Thread *)blocked->Remove();   //wake up a thread waiting for the condition
