@@ -187,7 +187,6 @@ void Lock::Acquire() {}
 void Lock::Release() {}
 #endif
 
-#if defined(CHANGED) && defined(HW1_CONDITIONS)
 
 //----------------------------------------------------------------------
 // Condition::Condition
@@ -199,7 +198,7 @@ void Lock::Release() {}
 Condition::Condition(char* debugName) 
 {
 	name=debugName;
-	queue=new List;
+	blocked=new List;
 }
 
 //----------------------------------------------------------------------
@@ -210,7 +209,7 @@ Condition::Condition(char* debugName)
 
 Condition::~Condition() 
 {
-	delete queue;
+	delete blocked;
 }
 
 //----------------------------------------------------------------------
@@ -228,12 +227,12 @@ void Condition::Wait(Lock* conditionLock)
 	if(conditionLock->isHeldByCurrentThread())        //checking if the lock is hold by the current thread
 	{
 		conditionLock->Release();  
-		DEBUG('t',"***%s about to wait on %s\n", currentThread->getName(), name);
-		queue->Append((void *)currentThread);     //After lock was released, appending the current thread to 
-							  //condition queue
+		blocked->Append((void *)currentThread);     //After lock was released, appending the thread to block queue
 		currentThread->Sleep();                   //The thread will be blocked
 		conditionLock->Acquire();                 //When the thead is awoken, reacquire a lock.
 	}
+	else
+		currentThread->Sleep();			//If the thread dosn't hold the lock, block itself.
 	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
 
 }
@@ -250,13 +249,12 @@ void Condition::Signal(Lock* conditionLock)
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);  // disable interrupts
 	if(coditionLock->isHeldByCurrentThread())
 	{
-		if(!queue->IsEmpty())                      // when condition waiting queue is not empty, continue
+		if(!blocked->IsEmpty())                      // when condition waiting queue is not empty, continue
 		{
-			thread = (Thread *)queue->Remove();   //wake up a thread waiting for the condition
+			thread = (Thread *)blocked->Remove();   //wake up a thread waiting for the condition
 			if(thread != NULL)
 			{
-				scheduler->ReadyToRun(thread);//make the thread ready
-				DEBUG('t',"***%s signals on %s\n", currentThread->getName(), name);
+				scheduler->ReadyToRun(thread);//make the thread ready to run
 			}
 		}
 	}
@@ -275,21 +273,14 @@ void Condition::Broadcast(Lock* conditionLock)
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);     // disable interrupts
 	if(conditionLock->isHeldByCurrentThread())
 	{
-	   	while(!queue->IsEmpty())                      //wake up all threads waiting for the conditon
+	   	while(!blocked->IsEmpty())                      //wake up all threads waiting for the conditon
 		{	
-			thread = (Thread *)queue->Remove();
+			thread = (Thread *)blocked->Remove();
 			if(thread != NULL)
-				scheduler->ReadyToRun(thread); // make thread ready
-				DEBUG('t',"***%s broadcasts on %s\n", currentThread->getName(), name);
+				scheduler->ReadyToRun(thread); // make the thread ready to run
 		}
 	}
 	(void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
 }
 
-#else
-Condition::Condition(char* debugName) { }
-Condition::~Condition() { }
-void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
-void Condition::Signal(Lock* conditionLock) { }
-void Condition::Broadcast(Lock* conditionLock) { }
 #endif
