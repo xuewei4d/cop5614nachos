@@ -188,6 +188,7 @@ void Lock::Release() {}
 #endif
 
 
+#if defined(CHANGED) && defined(HW1_CONDITIONS)
 //----------------------------------------------------------------------
 // Condition::Condition
 // 	Initialize a condition object.
@@ -197,8 +198,8 @@ void Lock::Release() {}
 
 Condition::Condition(char* debugName) 
 {
-	name=debugName;
-	blocked=new List;
+  name=debugName;
+  blocked=new List;
 }
 
 //----------------------------------------------------------------------
@@ -209,7 +210,7 @@ Condition::Condition(char* debugName)
 
 Condition::~Condition() 
 {
-	delete blocked;
+  delete blocked;
 }
 
 //----------------------------------------------------------------------
@@ -220,21 +221,19 @@ Condition::~Condition()
 
 void Condition::Wait(Lock* conditionLock) 
 { 
-	//ASSERT(FALSE);
-
-	IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupt 
-
-	if(conditionLock->isHeldByCurrentThread())        //checking if the lock is hold by the current thread
-	{
-		conditionLock->Release();  
-		blocked->Append((void *)currentThread);     //After lock was released, appending the thread to block queue
-		currentThread->Sleep();                   //The thread will be blocked
-		conditionLock->Acquire();                 //When the thead is awoken, reacquire a lock.
-	}
-	else
-		currentThread->Sleep();			//If the thread dosn't hold the lock, block itself.
-	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
-
+  IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupt 
+  
+  if(conditionLock->isHeldByCurrentThread())        //checking if the lock is hold by the current thread
+    {
+      conditionLock->Release();  
+      blocked->Append((void *)currentThread);     //After lock was released, appending the thread to block queue
+      currentThread->Sleep();                   //The thread will be blocked
+      conditionLock->Acquire();                 //When the thead is awoken, reacquire a lock.
+    }
+  else
+    DEBUG('t',"Error conditioinLock is not held by the current thread.");
+  (void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+  
 }
 
 //----------------------------------------------------------------------
@@ -245,20 +244,17 @@ void Condition::Wait(Lock* conditionLock)
 
 void Condition::Signal(Lock* conditionLock) 
 {
-	Thread *thread;
-	IntStatus oldLevel = interrupt->SetLevel(IntOff);  // disable interrupts
-	if(coditionLock->isHeldByCurrentThread())
-	{
-		if(!blocked->IsEmpty())                      // when condition waiting queue is not empty, continue
-		{
-			thread = (Thread *)blocked->Remove();   //wake up a thread waiting for the condition
-			if(thread != NULL)
-			{
-				scheduler->ReadyToRun(thread);//make the thread ready to run
-			}
-		}
-	}
-	(void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
+  Thread *thread;
+  IntStatus oldLevel = interrupt->SetLevel(IntOff);  // disable interrupts
+  if(coditionLock->isHeldByCurrentThread())
+    {
+      
+      thread = (Thread *)blocked->Remove();   //wake up a thread waiting for the condition
+      if(thread != NULL)	
+	scheduler->ReadyToRun(thread);//make the thread ready to run
+
+    }
+  (void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
 	       
 }
 
@@ -269,18 +265,17 @@ void Condition::Signal(Lock* conditionLock)
 //----------------------------------------------------------------------
 void Condition::Broadcast(Lock* conditionLock) 
 {
-	Thread *thread; 
-	IntStatus oldLevel = interrupt->SetLevel(IntOff);     // disable interrupts
-	if(conditionLock->isHeldByCurrentThread())
-	{
-	   	while(!blocked->IsEmpty())                      //wake up all threads waiting for the conditon
-		{	
-			thread = (Thread *)blocked->Remove();
-			if(thread != NULL)
-				scheduler->ReadyToRun(thread); // make the thread ready to run
-		}
+  Thread *thread; 
+  IntStatus oldLevel = interrupt->SetLevel(IntOff);     // disable interrupts
+  if(conditionLock->isHeldByCurrentThread())
+    {
+      while(!blocked->IsEmpty())                      //wake up all threads waiting for the conditon
+	{	
+	  thread = (Thread *)blocked->Remove();
+	  scheduler->ReadyToRun(thread); // make the thread ready to run
 	}
-	(void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
+    }
+  (void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
 }
 
 #endif
