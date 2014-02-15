@@ -79,7 +79,7 @@ class Lock {
 
   private:
     char* name;		        // for debugging
-#if defined(CHANGED) && defined(HW1_LOCKS)   
+#if defined(CHANGED)
     // plus some other stuff you'll need to define
 
     bool isHeld;                // lock status

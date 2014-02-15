@@ -97,7 +97,7 @@ Semaphore::V()
     (void) interrupt->SetLevel(oldLevel);
 }
 
-#if defined(CHANGED) && defined(HW1_LOCKS)
+#if defined(CHANGED)
 
 //----------------------------------------------------------------------
 // Lock::Lock
@@ -153,8 +153,6 @@ void Lock::Release()
   Thread *thread;
   IntStatus oldLevel = interrupt->SetLevel(IntOff);
   if (isHeldByCurrentThread()) {
-    DEBUG('t',"The Lock is held by current thread!");
-
     thread = (Thread *)queue->Remove();
     if (thread != NULL)
       scheduler->ReadyToRun(thread);
@@ -162,7 +160,7 @@ void Lock::Release()
     lockHolder = NULL;
   }
   else
-    DEBUG('t',"Error: The Lock is held by another thread or not acquired!");
+    printf("Lock Error: The Lock is held by another thread or not acquired!");
   (void) interrupt->SetLevel(oldLevel);
   
 }
@@ -188,7 +186,7 @@ void Lock::Release() {}
 #endif
 
 
-#if defined(CHANGED) && defined(HW1_CONDITIONS)
+#if defined(CHANGED)
 //----------------------------------------------------------------------
 // Condition::Condition
 // 	Initialize a condition object.
@@ -231,7 +229,7 @@ void Condition::Wait(Lock* conditionLock)
       conditionLock->Acquire();                 //When the thead is awoken, reacquire a lock.
     }
   else
-    DEBUG('t',"Error conditioinLock is not held by the current thread.");
+    printf("Condition Error: conditioinLock is not held by the current thread.");
   (void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
   
 }
@@ -254,6 +252,8 @@ void Condition::Signal(Lock* conditionLock)
 	scheduler->ReadyToRun(thread);//make the thread ready to run
 
     }
+  else
+    printf("Condtion Error: lock is held by another process.");
   (void) interrupt->SetLevel(oldLevel);                 // re-enable interrupts
 	       
 }
