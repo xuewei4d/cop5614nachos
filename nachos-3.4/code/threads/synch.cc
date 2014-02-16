@@ -226,7 +226,7 @@ void Condition::Wait(Lock* conditionLock)
       conditionLock->Release();  
       blocked->Append((void *)currentThread);     //After lock was released, appending the thread to block queue
       currentThread->Sleep();                   //The thread will be blocked
-      conditionLock->Acquire();                 //When the thead is awoken, reacquire a lock.
+      conditionLock->Acquire();                 //When the thead is awaken, reacquire a lock.
     }
   else
     printf("Condition Error: conditioinLock is not held by the current thread.");

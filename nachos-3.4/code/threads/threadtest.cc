@@ -137,41 +137,53 @@ void SimpleThread(int which)
 
 #elif defined(CHANGED) && defined(HW1_ELEVATOR)
 
-/* critical variable */
-
+unsigned int max_floors = 0;
 unsigned int current_floor = 1;
 const unsigned int capacity = 5;
-unsigned int room = 5;
+unsigned int room = 5; // available space in the elevator
 enum DIRECTION {UP, DOWN, IDLE, CLOSE};
 DIRECTION direction = UP;
 
-// with the arrays, elevator does not have to stop every floor.
-unsigned int *waiting_list;
-unsigned int *going_list;
+unsigned int *waiting_list; // for each floor the number of passengers waiting outside the elevator
+unsigned int *going_list; // for each floor, the number of passenger going inside the elevator
 Lock elevator_lk("ELEVATOR_LOCK");
 Lock token_lk("TOKEN_LOCK");
-Condition passenger_out_cd("PASSENGER_OUT_CONDITION");
-Condition passenger_in_cd("PASSENGER_IN_CONDITION");
-Condition elevator_move_cd("ELEVATOR_MOVE_CONDITION");
-Condition elevator_active_cd("ELEVATOR_ACTIVE_CONDITION");
+Condition passenger_out_cd("PASSENGER_OUT_CONDITION"); // elevator notify passengers to go out of the elevator
+Condition passenger_in_cd("PASSENGER_IN_CONDITION");  // elevator notify passengers to get into the elevator
+Condition elevator_active_cd("ELEVATOR_ACTIVE_CONDITION"); // elevator notify passengers it is active
 
-// Have to check braodcast, if without Hoar-Style condition variable;
+// check braodcasting of condtion variable, if condition variable is not Hoar-Style.
+// make Mesa condition variable acts like Hoare-Style condtion variable
 Condition finish_broadcast_cd("FINISH_BROADCAST_CONDTION");
 unsigned int broadcast_count = 0;
 
-unsigned int token = 0;
-unsigned int max_floors = 0;
+unsigned int token = 0; // generate passengers' id
 struct Passenger {
   unsigned int at_floor, to_floor, id;
   DIRECTION direction;
 };
 
+//----------------------------------------------------------------------
+// map_floor
+//
+//    maps the real floor to the index of waiting_list and going_list
+//
+//----------------------------------------------------------------------
 unsigned int map_floor(DIRECTION d, unsigned int f) {
   if (d==UP || f == 1)
     return f;
   else
     return 2*max_floors - f;
 }
+
+//----------------------------------------------------------------------
+// searchNextFloor
+//
+//    finds the next floor the elevator needs to stop, if 
+// 1. there is a passenger waiting on that floor
+// 2. there is a passenger in the elevator going to that floor.
+//
+//----------------------------------------------------------------------
 unsigned int searchNextFloor(DIRECTION d, unsigned int f, unsigned room) {
   unsigned int i, j;
   i = map_floor(d, f);
@@ -185,6 +197,13 @@ unsigned int searchNextFloor(DIRECTION d, unsigned int f, unsigned room) {
   return j;
 }
 
+//----------------------------------------------------------------------
+// realNextFloor
+//
+//    maps the index of the waiting_list and going_list to the real floor
+//
+//----------------------------------------------------------------------
+
 inline unsigned int realNextFloor(unsigned int next_floor) {
   if (next_floor > max_floors - 1)
     return 2*max_floors - next_floor;
@@ -192,21 +211,26 @@ inline unsigned int realNextFloor(unsigned int next_floor) {
     return next_floor;
 }
 
+
 void ElevatorThread(int num_floors) {
+
+  // notify passengers the elevator is ready
   elevator_lk.Acquire();
   elevator_active_cd.Signal(&elevator_lk);
   direction = UP;
   printf("Elevator ready.\n");
   elevator_lk.Release();
+
   currentThread->Yield();
   while (true) {
 
-    // let passenger register info.
+    // compute the next_floor the elevator should go.
     elevator_lk.Acquire();
     unsigned int next_floor = searchNextFloor(direction, current_floor, room);
     unsigned int real_next_floor  = realNextFloor(next_floor);
     int num_waiting = waiting_list[next_floor];
     int num_going = going_list[next_floor];
+#ifdef HW1_ELEVATOR_DEBUG
     printf("DEBUG elevator current floor %d, next_floor %d, direction %d.\n", current_floor, next_floor, direction);
     printf("DEBUG waiting %d, going %d, room %d.\n", num_waiting, num_going, capacity - room);
     for (int z = 0; z < 2*max_floors - 1; ++z)
@@ -215,8 +239,10 @@ void ElevatorThread(int num_floors) {
     for (int z = 0; z < 2*max_floors - 1; ++z)
       printf("%d ", going_list[z]);
     printf("\n");
+#endif
     if (real_next_floor == current_floor && num_waiting == 0 && num_going == 0) {
-      // no job needs to be done
+      // if nobody waiting neither outside of the elevator nor in the elevator 
+      // close the elevator and quit
       direction = CLOSE;
       printf("Elevator stoped services.\n");
       delete [] waiting_list;
@@ -229,11 +255,16 @@ void ElevatorThread(int num_floors) {
       printf("Elevator arrives on floor %d.\n", current_floor);
 
       printf("Elevator let passengers out.\n");
+
+      // broadcast all waiting threads, 
+      // and must waiting for the responds from all waiting threads
       broadcast_count = capacity - room;
       passenger_out_cd.Broadcast(&elevator_lk);
       if (broadcast_count != 0) {
 	finish_broadcast_cd.Wait(&elevator_lk);
+#ifdef HW1_ELEVATOR_DEBUG
 	printf("finish broadcast\n");
+#endif
       }
       
       printf("Elevator let passengers in.\n");
@@ -243,18 +274,17 @@ void ElevatorThread(int num_floors) {
       passenger_in_cd.Broadcast(&elevator_lk);
       if (broadcast_count != 0) {
 	finish_broadcast_cd.Wait(&elevator_lk);
-	printf("finish waiting\n");
+#ifdef HW1_ELEVATOR_DEBUG
+	printf("finish broadcast\n");
+#endif
       }
 
       printf("Elevator closed the door at floor %d.\n", current_floor);
       elevator_lk.Release();
     }
     else {
-      // next_floor  != current_floor
-      elevator_lk.Release();
-      
-      // move
-      elevator_lk.Acquire();
+      // next_floor != current_floor, the elevator moves up or down
+
       for (int i = 0; i < 50; ++i);
       if (real_next_floor > current_floor) {
 	direction = UP;
@@ -264,13 +294,19 @@ void ElevatorThread(int num_floors) {
 	direction = DOWN;
 	-- current_floor;
       }
-      elevator_move_cd.Signal(&elevator_lk);
+
       elevator_lk.Release();
     }
     
   }
 }
 
+//----------------------------------------------------------------------
+// Elevator
+//    initializes the parameters of the elevator and 
+//    starts a the running thread of the elevator
+//
+//----------------------------------------------------------------------
 void Elevator(int numFloors) {
   max_floors = numFloors;
   current_floor = 1;
@@ -287,13 +323,20 @@ void Elevator(int numFloors) {
   
 }
 
+//----------------------------------------------------------------------
+// PassengerThread
+//
+//    the running thread of the passenger
+//
+//----------------------------------------------------------------------
+
 void PassengerThread(int pPassenger) {
 
   Passenger *p = (Passenger*)pPassenger;
-  // register the at_floor and to_floor into the list;
 
+  // waiting for the elevator is ready
+  // if the elevator is closed, then quit
   elevator_lk.Acquire();
-
   if (direction == IDLE)
     elevator_active_cd.Wait(&elevator_lk);
   else if (direction == CLOSE) {
@@ -301,59 +344,44 @@ void PassengerThread(int pPassenger) {
     elevator_lk.Release();
     return;
   }
+
+  //  register the at_floor and to_floor into the waiting _list
   waiting_list[map_floor(p->direction, p->at_floor)] += 1;
   printf("Passenger %d wants to from %d go to %d floor.\n", p->id, p->at_floor, p->to_floor);
-    
-  // passenger waiting in the floor.
-  if (current_floor == p->at_floor) {
-    printf("%d begins to same floor wait\n", p->id);
-    passenger_in_cd.Wait(&elevator_lk);
+
+  // whatever current_floor equlas at_floor or not, the passengers should wait for signal of "passenger_in" first
+  // if awaken, the passenger check the current_floor then available space in the elevator.
+  while (true) {
+    passenger_in_cd.Wait(&elevator_lk);       // waiting for elevator signal let passenger get in
     broadcast_count -= 1;
-    printf("broadcast count %d\n", broadcast_count);
     if (broadcast_count == 0)
       finish_broadcast_cd.Signal(&elevator_lk);
-    printf("%d finishes same floor wait\n", p->id);
-  }
-  while (true) {
-    if (current_floor != p->at_floor) {
-      printf("%d begins different floor wait\n", p->id);
-      passenger_in_cd.Wait(&elevator_lk);       // waiting for elevator signal let passenger get in
-      broadcast_count -= 1;
-      printf("broadcast count %d\n", broadcast_count);
-      if (broadcast_count == 0)
-	finish_broadcast_cd.Signal(&elevator_lk);
-      printf("%d finishes different floor wait\n", p->id);
-    }
-      else {
-	printf("%d check room\n", p->id);
 
-	if (room > 0) {
+    if (current_floor == p->at_floor) {
+      // if there is available room, update the waiting_list and going_list
+      if (room > 0) {
 	  room --;
 	  waiting_list[map_floor(p->direction, p->at_floor)] -= 1;
 	  going_list[map_floor(p->direction, p->to_floor)] += 1;
 	  break;
-	} 
-	else {
-	  printf("%d no room.\n", p->id);
-	  elevator_move_cd.Wait(&elevator_lk);       // no room
-	}
-	
-      }
+      } 
+      
+    }
   }
 
   printf("Passenger %d (from %d, to %d) get into floor %d.\n", p->id, p->at_floor, p->to_floor, current_floor);
     
   // passenger waiting in the elevator.
+  // if awaken, check the current_floor against its to_floor
+  // if they are equal, get out of the elevator.
   while (true) {
-    if (current_floor != p->to_floor)  {
-      passenger_out_cd.Wait(&elevator_lk);
-      broadcast_count -= 1;
-      printf("broadcast count %d\n", broadcast_count);
-      if (broadcast_count == 0) 
-	finish_broadcast_cd.Signal(&elevator_lk);
+    passenger_out_cd.Wait(&elevator_lk);
+    broadcast_count -= 1;
+      
+    if (broadcast_count == 0) 
+      finish_broadcast_cd.Signal(&elevator_lk);
 
-    }
-    else {
+    if (current_floor == p->to_floor)  {
       room ++;
       going_list[map_floor(p->direction, p->to_floor)] -= 1;
       
@@ -361,14 +389,22 @@ void PassengerThread(int pPassenger) {
       break;
     }
   }
+
   elevator_lk.Release();
   delete p;   // destroy the structure that p points
 }
 
+//----------------------------------------------------------------------
+// ArrivingGoingFromTo
+//
+//    initialize the passenger information, and starts a running thread of
+// the passenger
+//
+//----------------------------------------------------------------------
 
 void ArrivingGoingFromTo(int atFloor, int toFloor) {
   if (atFloor < 1 || atFloor > max_floors || toFloor < 1 || toFloor > max_floors || atFloor == toFloor) {
-    printf("Exception: passenger illegal atFloor %d, toFloor %d.", atFloor, toFloor);
+    printf("Exception: passenger illegal atFloor %d, toFloor %d.\n", atFloor, toFloor);
     return;
   }
     
@@ -386,8 +422,7 @@ void ArrivingGoingFromTo(int atFloor, int toFloor) {
   thread->Fork(PassengerThread, (int)p);
 }
 
-#else
-/* the original code goes here */
+#elif defined(CHANGED)
 void
 SimpleThread(int which)
 {
@@ -398,12 +433,11 @@ SimpleThread(int which)
         currentThread->Yield();
     }
 }
-#endif
 
+#endif 
 
-
-#if defined(CHANGED) && (defined(HW1_SEMAPHORES) || defined(HW1_LOCKS))
-
+#ifndef HW1_ELEVATOR
+#if defined(CHANGED)
 //----------------------------------------------------------------------
 // ThreadTest (n)
 // 	Invoke a test routine. Fork n *new* threads, which means there 
@@ -420,8 +454,6 @@ void ThreadTest(int n) {
   }
   SimpleThread(0);
 }
-
-#elif defined(CHANGED) && defined(HW1_ELEVATOR)
 
 #else
 
@@ -444,7 +476,6 @@ ThreadTest1()
     SimpleThread(0);
 }
 
-
 void
 ThreadTest()
 {
@@ -457,4 +488,5 @@ ThreadTest()
 	break;
     }
 }
+#endif
 #endif

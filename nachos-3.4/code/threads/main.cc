@@ -61,6 +61,9 @@ extern int testnum;
 #if defined(CHANGED)
 /* put your changed code here */
 extern void ThreadTest(int), Copy(char *unixFile, char *nachosFile);
+extern void LockTest(void);
+extern void SemaphorePing(void);
+extern void Ping(void);
 
 #if defined(HW1_ELEVATOR)
 extern void Elevator(int numFloors);
@@ -111,35 +114,37 @@ main(int argc, char **argv)
         break;
       }
     }
-#if defined(CHANGED) && (defined(HW1_SEMAPHORES) || defined(HW1_LOCKS))
+#if defined(CHANGED) && (defined(HW1_SEMAPHORES) || defined(HW1_LOCKS) || defined(HW1_NOSEMAPHORES))
 /* put your changed code here */
     ThreadTest(4);
+    // Ping();  // TA's test cases
+    // LockTest(); // TA's test cases
+    // SemaphorePing(); // TA's test cases
 #elif defined (CHANGED) && defined(HW1_ELEVATOR)
-    Elevator(30);
-    ArrivingGoingFromTo(1, 4);
-    ArrivingGoingFromTo(1, 4);
+    Elevator(20);
+    ArrivingGoingFromTo(1, 5);
+    ArrivingGoingFromTo(1, 5);
     ArrivingGoingFromTo(1, 3);
-    ArrivingGoingFromTo(1, 6);
-    ArrivingGoingFromTo(2, 3);
+    ArrivingGoingFromTo(1, 7);
     ArrivingGoingFromTo(1, 9);
-    ArrivingGoingFromTo(3, 4);
-    ArrivingGoingFromTo(4, 1);
-    ArrivingGoingFromTo(10, 5);
+    ArrivingGoingFromTo(1, 10);
+    ArrivingGoingFromTo(2, 4);
+    ArrivingGoingFromTo(3, 9);
+    ArrivingGoingFromTo(4, 2);
+    ArrivingGoingFromTo(10, 2);
     ArrivingGoingFromTo(11, 20);
     ArrivingGoingFromTo(4, 7);
-    ArrivingGoingFromTo(23, 2);
-    ArrivingGoingFromTo(13, 14);
-    ArrivingGoingFromTo(10, 8);
-    ArrivingGoingFromTo(10, 5);
-    ArrivingGoingFromTo(11, 20);
-    ArrivingGoingFromTo(4, 7);
-    ArrivingGoingFromTo(10, 17);
+    ArrivingGoingFromTo(19, 2);
+    ArrivingGoingFromTo(5, 9);
+    ArrivingGoingFromTo(5, 19);
+    ArrivingGoingFromTo(12, 19);
+    ArrivingGoingFromTo(7, 9);
+    ArrivingGoingFromTo(12, 17);
     ArrivingGoingFromTo(4, 12);
     ArrivingGoingFromTo(4, 12);
-    ArrivingGoingFromTo(30, 1);
-#else
-/* the original code goes here */
-    ThreadTest();
+    ArrivingGoingFromTo(20, 1);
+#elif defined (CHANGED)
+    ThreadTest(4);
 #endif
 
 #endif
