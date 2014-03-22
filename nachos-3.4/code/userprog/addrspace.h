@@ -15,7 +15,7 @@
 
 #include "copyright.h"
 #include "filesys.h"
-
+#include "pcb.h"
 #define UserStackSize		1024 	// increase this as necessary!
 
 class AddrSpace {
@@ -30,6 +30,17 @@ class AddrSpace {
 
     void SaveState();			// Save/restore address space-specific
     void RestoreState();		// info on a context switch 
+
+    void PrintPageTable();
+    void ReleaseMemory();
+    AddrSpace();
+    AddrSpace* Fork();
+    void SaveUserRegisters();
+    void RestoreUserRegisters();
+    void PrintUserRegisters();
+
+    PCB *thisPCB;
+    int userRegisters[NumTotalRegs];
 
   private:
     TranslationEntry *pageTable;	// Assume linear page table translation

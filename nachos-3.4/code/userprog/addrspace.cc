@@ -83,37 +83,44 @@ AddrSpace::AddrSpace(OpenFile *executable)
 						// at least until we have
 						// virtual memory
 
-    DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
+    DEBUG('s', "AddrSpace Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
-	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = i;
-	pageTable[i].valid = TRUE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
+		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
+		pageTable[i].physicalPage = memoryMgr->GetPage();  // CHANGED
+		DEBUG('s',"Create New Page %d\t", pageTable[i].physicalPage);
+		pageTable[i].valid = TRUE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
+		                                // a separate page, we could set its 
+                                		// pages to be read-only
+		// CHANGED
+		bzero(machine->mainMemory + pageTable[i].physicalPage*PageSize, PageSize);
     }
+	DEBUG('s',"\n\n");
     
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
-    bzero(machine->mainMemory, size);
+//    bzero(machine->mainMemory, size);
 
 // then, copy in the code and data segments into memory
     if (noffH.code.size > 0) {
-        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
+        DEBUG('s', "AddrSpace Initializing code segment, at 0x%x, size %d\n", 
 			noffH.code.virtualAddr, noffH.code.size);
         executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
 			noffH.code.size, noffH.code.inFileAddr);
+
+// TODO READAT
     }
     if (noffH.initData.size > 0) {
-        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
+        DEBUG('s', "AddrSpace Initializing data segment, at 0x%x, size %d\n", 
 			noffH.initData.virtualAddr, noffH.initData.size);
         executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
 			noffH.initData.size, noffH.initData.inFileAddr);
+// TODOREADAT
     }
 
 }
@@ -157,7 +164,7 @@ AddrSpace::InitRegisters()
    // allocated the stack; but subtract off a bit, to make sure we don't
    // accidentally reference off the end!
     machine->WriteRegister(StackReg, numPages * PageSize - 16);
-    DEBUG('a', "Initializing stack register to %d\n", numPages * PageSize - 16);
+    DEBUG('s', "Initializing stack register to %d\n", numPages * PageSize - 16);
 }
 
 //----------------------------------------------------------------------
@@ -183,4 +190,74 @@ void AddrSpace::RestoreState()
 {
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
+}
+
+void AddrSpace::PrintPageTable() {
+	DEBUG('s',"PID [%d] AddrSpace Print PageTable\n", thisPCB->PID);
+	for (int i = 0; i < numPages; ++i) {
+		DEBUG('s',"PageTable %d, Physical Page %d\t", i, pageTable[i].physicalPage);
+	}
+	DEBUG('s',"\n\n");
+}
+
+void AddrSpace::ReleaseMemory() {
+	DEBUG('s', "PID [%d] AddrSpace Release %d pages\n", thisPCB->PID, numPages);
+	for (int i = 0; i < numPages; ++i) {
+		DEBUG('s', "Clear page %d\t", 
+				pageTable[i].physicalPage);
+		memoryMgr->ClearPage(pageTable[i].physicalPage);
+	}
+	DEBUG('s',"\n\n");
+}
+
+AddrSpace::AddrSpace() {
+
+}
+
+AddrSpace* AddrSpace::Fork() {
+	DEBUG('s',"PID [%d] AddrSpace Fork\n", thisPCB->PID);
+	if (numPages > memoryMgr->GetNumFreePages()) {
+	    DEBUG('s', "AddrSpace Not Enough Space!\n");
+		return NULL;
+	}
+	
+	AddrSpace * newAddrSpace = new AddrSpace();
+	newAddrSpace->numPages = numPages;
+	newAddrSpace->pageTable = new TranslationEntry[numPages];
+	for (int i = 0; i < numPages; i++) {
+		newAddrSpace->pageTable[i].virtualPage = pageTable[i].virtualPage;
+		newAddrSpace->pageTable[i].physicalPage = memoryMgr->GetPage();    // allocate memory space
+		DEBUG('s', "Fork New Page %d\t", 
+				newAddrSpace->pageTable[i].physicalPage);
+		newAddrSpace->pageTable[i].valid = pageTable[i].valid;
+		newAddrSpace->pageTable[i].use = pageTable[i].use;
+		newAddrSpace->pageTable[i].dirty = pageTable[i].dirty;
+		newAddrSpace->pageTable[i].readOnly = pageTable[i].readOnly;
+		bcopy(machine->mainMemory + pageTable[i].physicalPage*PageSize, 
+				machine->mainMemory + newAddrSpace->pageTable[i].physicalPage*PageSize, PageSize);
+	}
+	DEBUG('s',"\n\n");
+	return newAddrSpace;
+}
+
+void AddrSpace::SaveUserRegisters(){
+	DEBUG('s',"PID [%d] AddrSpace Save Registers\n", thisPCB->PID);
+	for (int i = 0; i < NumTotalRegs; ++i) {
+		userRegisters[i] = machine->ReadRegister(i);
+	}
+	DEBUG('s',"\n");
+}
+
+void AddrSpace::RestoreUserRegisters() {
+	DEBUG('s',"PID [%d] AddrSpace Restore Registers\n", thisPCB->PID);
+	for (int i = 0; i < NumTotalRegs; ++i)
+		machine->WriteRegister(i, userRegisters[i]);
+	DEBUG('s',"\n");
+}
+
+void AddrSpace::PrintUserRegisters() {
+	DEBUG('s',"PID [%d] AddrSpace Print Registers\n", thisPCB->PID);
+	for (int i = 0; i < NumTotalRegs; ++i)
+		DEBUG('s', "%d: %d\t", i, userRegisters[i]);
+	DEBUG('s',"\n\n");
 }

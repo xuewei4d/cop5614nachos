@@ -48,16 +48,132 @@
 //	are in machine.h.
 //----------------------------------------------------------------------
 
+void PrintMachineRegisters() {
+	DEBUG('s',"Machine Registers: \n");
+	for (int i = 0; i < NumTotalRegs; ++i)
+		DEBUG('s',"%d: %d\t", i, machine->ReadRegister(i));
+	DEBUG('s',"\n\n");
+}
+
+void ExitSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	int val = machine->ReadRegister(4);
+
+	DEBUG('s',"Systemcall Exit: PID [%d], Value %d\n", 
+			currentAddrSpace->thisPCB->PID, val);
+	PrintMachineRegisters();
+	
+	currentPCB->RemoveChildParentPCB();
+	currentPCB->RemoveParentPCBChild(val);
+	processMgr->RemovePCB(currentPCB);
+	DEBUG('s',"System %d PIDs\n", processMgr->GetNumFreePCBs());
+	
+	currentAddrSpace->PrintPageTable();
+	currentAddrSpace->ReleaseMemory();
+	DEBUG('s',"System memory %d pages\n", memoryMgr->GetNumFreePages());
+	delete currentAddrSpace;
+	delete currentPCB;
+	currentThread->Finish();
+}
+
+void UpdatePCRegs() {
+	DEBUG('s',"Update PCRegs\n");
+	DEBUG('s',"\n");
+	int pcreg = machine->ReadRegister(PCReg);
+	int prevpcreg = machine->ReadRegister(PrevPCReg);
+	int nextpcreg = machine->ReadRegister(NextPCReg);
+	machine->WriteRegister(PCReg, pcreg + 4);
+	machine->WriteRegister(PrevPCReg, prevpcreg + 4);
+	machine->WriteRegister(NextPCReg, nextpcreg + 4);
+}
+
+void Dummy(int d) {
+	DEBUG('s', "Dummy Function\n\n");
+	currentThread->space->RestoreUserRegisters();
+	currentThread->space->RestoreState();
+	machine->Run();
+}
+
+void ForkSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	DEBUG('s',"Systemcall Fork: PID [%d]\n", 
+			currentAddrSpace->thisPCB->PID);
+	PrintMachineRegisters();
+
+	// 1. save old process registers
+	currentAddrSpace->SaveUserRegisters();
+	currentAddrSpace->PrintUserRegisters();
+
+	// 2. create a PCB and associate
+	PCB *childPCB = processMgr->CreatePCB();
+	if (childPCB == NULL) {
+		machine->WriteRegister(2, -1);
+		return;
+	}
+	AddrSpace *childAddrSpace = currentAddrSpace->Fork();
+	if (childAddrSpace == NULL) {
+		machine->WriteRegister(2, -1);
+		return;
+	}
+	childAddrSpace->thisPCB = childPCB;
+	childAddrSpace->PrintPageTable();
+	
+	// 3. create a new Thread and associate
+	Thread *childThread = new Thread("Forked Thread");
+	
+	childThread->space = childAddrSpace;
+	childPCB->thisThread = childThread;
+	childPCB->parentPCB = currentPCB;
+	currentPCB->AppendChildPCB(childPCB);
+
+	currentPCB->PrintPCB();
+	childPCB->PrintPCB();
+
+	// 4. // Lock????
+	int childPCReg = machine->ReadRegister(4);
+	DEBUG('s',"PID [%d] Fork Child New PCReg %d\n", 
+			currentPCB->PID, childPCReg);
+	PrintMachineRegisters();
+	machine->WriteRegister(PCReg, childPCReg);
+	machine->WriteRegister(NextPCReg, childPCReg + 4);
+	machine->WriteRegister(PrevPCReg, childPCReg - 4);
+	PrintMachineRegisters();
+	childAddrSpace->SaveUserRegisters();
+	childAddrSpace->PrintUserRegisters();
+	
+	// 5. Fork
+	childThread->Fork(Dummy, 0);
+
+	// 6. Restore Machine Registers
+	currentAddrSpace->RestoreUserRegisters();
+	
+	// 7. Write Register 2
+	machine->WriteRegister(2, childPCB->PID);
+
+	PrintMachineRegisters();
+	UpdatePCRegs();
+	PrintMachineRegisters();
+}
+
 void
 ExceptionHandler(ExceptionType which)
 {
     int type = machine->ReadRegister(2);
 
     if ((which == SyscallException) && (type == SC_Halt)) {
-	DEBUG('a', "Shutdown, initiated by user program.\n");
-   	interrupt->Halt();
-    } else {
-	printf("Unexpected user mode exception %d %d\n", which, type);
-	ASSERT(FALSE);
+		DEBUG('s', "Shutdown, initiated by user program.\n");
+		interrupt->Halt();
+	}
+	else if ((which == SyscallException) && (type == SC_Exit)) {
+		ExitSystemcall();
+	}
+	else if ((which == SyscallException) && (type == SC_Fork)) {
+		ForkSystemcall();
+	}
+    else {
+		printf("Unexpected user mode exception %d %d\n", which, type);
+		ASSERT(FALSE);
     }
 }

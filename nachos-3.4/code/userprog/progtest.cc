@@ -27,10 +27,17 @@ StartProcess(char *filename)
     AddrSpace *space;
 
     if (executable == NULL) {
-	printf("Unable to open file %s\n", filename);
-	return;
+		printf("Unable to open file %s\n", filename);
+		return;
     }
+	PCB *newPCB = processMgr->CreatePCB();
+	newPCB->thisThread = currentThread;
+	newPCB->PrintPCB();
+	if (newPCB == NULL) {
+		return;
+	}
     space = new AddrSpace(executable);    
+	space->thisPCB = newPCB;
     currentThread->space = space;
 
     delete executable;			// close file
