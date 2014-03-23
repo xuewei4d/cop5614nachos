@@ -35,12 +35,36 @@ CPP = gcc -E
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt shell matmult sort test exectest
+all: halt shell matmult sort fork join kill exec memory
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.c > strt.s
 	$(AS) $(ASFLAGS) -o start.o strt.s
 	rm strt.s
+
+fork.o: fork.c
+	$(CC) $(CFLAGS) fork.c
+fork: fork.o start.o
+	$(LD) $(LDFLAGS) start.o fork.o -o fork.coff
+	../bin/coff2noff fork.coff fork 
+
+join.o: join.c
+	$(CC) $(CFLAGS) join.c
+join:   join.o start.o
+	$(LD) $(LDFLAGS) start.o join.o -o join.coff
+	../bin/coff2noff join.coff join 
+
+kill.o: kill.c
+	$(CC) $(CFLAGS) kill.c
+kill:   kill.o start.o
+	$(LD) $(LDFLAGS) start.o kill.o -o kill.coff
+	../bin/coff2noff kill.coff kill 
+
+exec.o: exec.c
+	$(CC) $(CFLAGS) exec.c
+exec: exec.o start.o
+	$(LD) $(LDFLAGS) start.o exec.o -o exec.coff
+	../bin/coff2noff exec.coff exec 
 
 halt.o: halt.c
 	$(CC) $(CFLAGS) -c halt.c
@@ -66,14 +90,8 @@ matmult: matmult.o start.o
 	$(LD) $(LDFLAGS) start.o matmult.o -o matmult.coff
 	../bin/coff2noff matmult.coff matmult
 
-test.o: test.c
-	$(CC) $(CFLAGS) -c test.c
-test: test.o start.o
-	$(LD) $(LDFLAGS) start.o test.o -o test.coff
-	../bin/coff2noff test.coff test
-
-exectest.o: exectest.c
-	$(CC) $(CFLAGS) -c exectest.c
-exectest: exectest.o start.o
-	$(LD) $(LDFLAGS) start.o exectest.o -o exectest.coff
-	../bin/coff2noff exectest.coff exectest
+memory.o: memory.c
+	$(CC) $(CFLAGS) memory.c
+memory: memory.o start.o
+	$(LD) $(LDFLAGS) start.o memory.o -o memory.coff
+	../bin/coff2noff memory.coff memory 

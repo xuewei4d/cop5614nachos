@@ -10,14 +10,19 @@ class Lock;
 
 class ProcessMgr{
  public:
-  ProcessMgr();
+  ProcessMgr(int size = PIDMAP_SIZE);
   ~ProcessMgr();
   
   PCB *CreatePCB();
   void RemovePCB(PCB *inputPCB);
   int GetNumFreePCBs();
-    
+  bool IsSet(int PID);
+  PCB *GetPCB(int inputPID);
+
+  int NumTotalPID;  
   BitMap pidMap;
+  PCB **allPCB;
   Lock  pidLock;
+  
 };
 #endif

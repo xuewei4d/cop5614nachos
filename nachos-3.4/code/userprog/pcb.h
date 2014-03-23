@@ -15,6 +15,7 @@ public:
   void AppendChildPCB(PCB *inputPCB);
   void RemoveChildParentPCB();
   void RemoveParentPCBChild(int inputValue);
+  PCB *GetChildPCB(int childPID);
   void PrintPCB();
 
   int PID;
@@ -22,5 +23,6 @@ public:
   PCB* parentPCB;  
   List childrenPCB;
   int childExitValue;
+
 };
 #endif

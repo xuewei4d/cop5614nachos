@@ -41,29 +41,36 @@ void PCB::RemoveParentPCBChild(int inputValue) {
 		parentPCB->childExitValue = inputValue;
 	}
 	else
-		DEBUG('s',"PCB [%d] Remove 0 ParentPCB\n", PID);
+		DEBUG('s',"PCB [%d] Remove No ParentPCB\n", PID);
 	DEBUG('s',"\n");
 }
 
 void printChildPCB(int input) {
 	PCB *inputPCB = (PCB *)input;
-	DEBUG('s',"Child PCB %d\t", inputPCB->PID);
+	DEBUG('s',"Child PCB: [0x%x], PID [%d], ParentPCB [0x%x]\t", 
+			inputPCB, inputPCB->PID, inputPCB->parentPCB);
 }
 
 void PCB::PrintPCB() {
-	DEBUG('s',"Print PCB [%d]: ", PID);
+	DEBUG('s',"Print PCB: [0x%x], PID [%d], ", this, PID);
 	if (thisThread)
-		DEBUG('s', "Thread [%d], ", thisThread);
+		DEBUG('s', "Thread [0x%x], ", thisThread);
 	else
 		DEBUG('s', "Thread NULL, ");
+	DEBUG('s', "ChildExitValue %d, ", childExitValue);
 	if (parentPCB)
-		DEBUG('s', "ParentPCB [%d], ",parentPCB->PID);
+		DEBUG('s', "ParentPCB [0x%x] PID [%d], ", 
+				parentPCB, parentPCB->PID);
 	else
 		DEBUG('s', "ParentPCB NULL, ");
 	if (!childrenPCB.IsEmpty())
 		childrenPCB.Mapcar(printChildPCB);
 	else
 		DEBUG('s',"Children No");
-	DEBUG('s',"\n");
-	DEBUG('s',"\n");
+	DEBUG('s',"\n\n");
+}
+
+PCB *PCB::GetChildPCB(int childPID){
+	PCB *childPCB = (PCB *)childrenPCB.Search(childPID);
+	return childPCB;
 }

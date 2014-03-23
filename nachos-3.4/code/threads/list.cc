@@ -236,3 +236,45 @@ List::SortedRemove(int *keyPtr)
     return thing;
 }
 
+// Add **** Search ****
+void * List::Search(int sortKey) {
+	ListElement *cur = first;
+	while(cur != NULL && cur->key != sortKey) {
+		cur = cur->next;
+	}
+	if (cur != NULL)
+		return cur->item;
+	return NULL;
+}
+
+// Add **** RemoveByKey for Scheduler ****
+void *List::RemoveByElement(void *e) {
+	// at least one element
+	ASSERT(first != NULL);
+	ListElement *pcur = NULL;
+	ListElement *cur = first;
+	void *thing;
+	while(cur != NULL && cur->item != e) {
+		pcur = cur;
+		cur = cur->next;
+	}
+	// cannot find key
+	ASSERT(cur != NULL);
+
+	// find on first element
+	thing = cur->item;
+	if (pcur == NULL) {
+		DEBUG('s', "List RemoveByElement Find in first Element\n");
+		first = cur->next;
+	}
+	else {
+		DEBUG('s', "List RemoveByElement Find in Multiple Element\n");
+		pcur->next = cur->next;
+	
+	}
+	if (last == cur)
+		last = NULL;
+	delete cur;
+	return thing;
+		
+}

@@ -67,11 +67,11 @@ void ExitSystemcall() {
 	currentPCB->RemoveChildParentPCB();
 	currentPCB->RemoveParentPCBChild(val);
 	processMgr->RemovePCB(currentPCB);
-	DEBUG('s',"System ProcessMgr %d PIDs\n\n", processMgr->GetNumFreePCBs());
+	DEBUG('s',"Systemcall Exit: ProcessMgr has %d PIDs\n\n", processMgr->GetNumFreePCBs());
 	
 	currentAddrSpace->PrintPageTable();
 	currentAddrSpace->ReleaseMemory();
-	DEBUG('s',"System MemoryMgr %d pages\n\n", memoryMgr->GetNumFreePages());
+	DEBUG('s',"Systemcall Exit: MemoryMgr has %d pages\n\n", memoryMgr->GetNumFreePages());
 	delete currentAddrSpace;
 	delete currentPCB;
 	currentThread->Finish();
@@ -99,7 +99,7 @@ void ForkSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	DEBUG('s',"Systemcall Fork: PID [%d]\n", 
-			currentAddrSpace->thisPCB->PID);
+			currentPCB->PID);
 	PrintMachineRegisters();
 
 	// 1. save old process registers
@@ -110,11 +110,20 @@ void ForkSystemcall() {
 	PCB *childPCB = processMgr->CreatePCB();
 	if (childPCB == NULL) {
 		machine->WriteRegister(2, -1);
+
+		UpdatePCRegs();
+		DEBUG('s',"Systemcall Fork: PID [%d] After Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
 		return;
 	}
 	AddrSpace *childAddrSpace = currentAddrSpace->Fork();
 	if (childAddrSpace == NULL) {
 		machine->WriteRegister(2, -1);
+		processMgr->RemovePCB(childPCB);
+
+		UpdatePCRegs();
+		DEBUG('s',"Systemcall Fork: PID [%d] After Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
 		return;
 	}
 	childAddrSpace->thisPCB = childPCB;
@@ -131,9 +140,9 @@ void ForkSystemcall() {
 	currentPCB->PrintPCB();
 	childPCB->PrintPCB();
 
-	// 4. // Lock????
+	// 4. 
 	int childPCReg = machine->ReadRegister(4);
-	DEBUG('s',"PID [%d] Fork Child New PCReg %d\n", 
+	DEBUG('s',"Systemcall Fork: PID [%d] Fork Child New PCReg %d\n", 
 			currentPCB->PID, childPCReg);
 	PrintMachineRegisters();
 	machine->WriteRegister(PCReg, childPCReg);
@@ -152,10 +161,8 @@ void ForkSystemcall() {
 	// 7. Write Register 2
 	machine->WriteRegister(2, childPCB->PID);
 
-	DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
-	PrintMachineRegisters();
 	UpdatePCRegs();
-	DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
+	DEBUG('s',"Systemcall Fork: PID [%d] After Update PCRegs\n", currentPCB->PID);
 	PrintMachineRegisters();
 }
 
@@ -190,50 +197,46 @@ bool ReadString(int stringAddr, char *stringBuffer, int size, AddrSpace *current
 void ExecSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
-	DEBUG('s',"Systemcall Exec: PID [%d]\n", 
-			currentAddrSpace->thisPCB->PID);
+	DEBUG('s',"Systemcall Exec: PID [%d]\n", currentPCB->PID);
 	PrintMachineRegisters();
 	
 	// 1. read path
 	int filenameAddr = machine->ReadRegister(4);
 	char *filename = new char[256];
 	ReadString(filenameAddr, filename, 256, currentAddrSpace);
-
 	
 	OpenFile *executable = fileSystem->Open(filename);
 	if (executable == NULL) {
-		DEBUG('s', "PID [%d] Unable to open file %s\n", currentPCB->PID, filename);
+		DEBUG('s', "Systemcall Exec: PID [%d] Unable to open file %s\n", currentPCB->PID, filename);
 		machine->WriteRegister(2, -1);
-		
-		DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
-		UpdatePCRegs();
-		DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
-    }
-	else {
-		// Replace Memory;
-		bool replaceSuccess = currentAddrSpace->ReplaceMemory(executable);
-		if (!replaceSuccess) {
-			machine->WriteRegister(2, -1);
-			DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
-			PrintMachineRegisters();
-			UpdatePCRegs();
-			DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
-			PrintMachineRegisters();
-			
-		}
-		delete executable;			// close file
-		currentAddrSpace->InitRegisters();		// set the initial register values
-		currentAddrSpace->RestoreState();		// load page table register
-		
 		delete []filename;
-		DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
+		
+		UpdatePCRegs();
+		DEBUG('s',"Systemcall Exec: PID [%d] After Update PCRegs\n", currentPCB->PID);
 		PrintMachineRegisters();
-		machine->WriteRegister(2, 1);
-		DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
+		return ;
+    }
+
+	// Replace Memory;
+	bool replaceSuccess = currentAddrSpace->ReplaceMemory(executable);
+	if (!replaceSuccess) {
+		machine->WriteRegister(2, -1);
+		delete []filename;
+		
+		UpdatePCRegs();
+		DEBUG('s',"Systemcall Exec: PID [%d] After Update PCRegs\n", currentPCB->PID);
 		PrintMachineRegisters();
+		return;
 	}
+	delete executable;			// close file
+	currentAddrSpace->InitRegisters();		// set the initial register values
+	currentAddrSpace->RestoreState();		// load page table register
+	
+	delete []filename;
+	
+	machine->WriteRegister(2, 1);
+	DEBUG('s',"Systemcall Exec: PID [%d] After Update PCRegs\n", currentPCB->PID);
+	PrintMachineRegisters();
 }
 
 void YieldSystemcall() {
@@ -245,12 +248,113 @@ void YieldSystemcall() {
 	
 	currentThread->Yield();
 	
-	DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
-	PrintMachineRegisters();
 	UpdatePCRegs();
-	DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
+	DEBUG('s',"Systemcall Yield: PID [%d] After Update PCRegs\n", currentPCB->PID);
 	PrintMachineRegisters();
 }
+
+void JoinSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	int joinPID = machine->ReadRegister(4);
+	DEBUG('s',"Systemcall Join: PID [%d] join [%d]\n", 
+			currentPCB->PID, joinPID);
+	PrintMachineRegisters();
+	
+	// 1. check child
+	if (joinPID < 0 || joinPID >= processMgr->NumTotalPID) {
+		DEBUG('s', "Systemcall Join: Invalid joinPID\n");
+		machine->WriteRegister(2, -1);
+
+		UpdatePCRegs();
+		DEBUG('s',"Systemcall Join: PID [%d] After Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
+		return ;
+	}
+
+	currentPCB->PrintPCB();
+	PCB *childPCB = currentPCB->GetChildPCB(joinPID);
+
+	if (childPCB == NULL) {
+		DEBUG('s', "Systemcall Join: ChildPCB Cannot Find\n");
+		machine->WriteRegister(2, -1);
+
+		UpdatePCRegs();
+		DEBUG('s',"Systemcall Join: PID [%d] After Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
+		return;
+	}
+	DEBUG('s', "Systemcall Join: currentPCB\n");
+	currentPCB->PrintPCB();
+	DEBUG('s', "Systemcall Join: childPCB\n");
+	childPCB->PrintPCB();
+	if (childPCB->parentPCB->PID != currentPCB->PID) {
+		DEBUG('s', "Systemcall Join: currentPCB [%d] != childParentPCB [%d]\n",
+				currentPCB->PID, childPCB->parentPCB->PID);
+		machine->WriteRegister(2, -1);
+		ASSERT(childPCB->parentPCB->PID == currentPCB->PID);
+	}
+
+	while(processMgr->IsSet(joinPID)) 
+		currentThread->Yield();
+	DEBUG('s',"Systemcall Join: currentPCB After child exit\n");
+	currentPCB->PrintPCB();
+	machine->WriteRegister(2, currentPCB->childExitValue);
+	
+	UpdatePCRegs();
+	DEBUG('s',"Systemcall Join: PID [%d] After Update PCRegs\n", currentPCB->PID);
+	PrintMachineRegisters();
+}
+
+void KillSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	int killPID = machine->ReadRegister(4);
+	DEBUG('s',"Systemcall Kill: PID [%d] kill [%d]\n", 
+			currentPCB->PID, killPID);
+	PrintMachineRegisters();
+	PCB *killPCB = processMgr->GetPCB(killPID);
+	if (killPCB != NULL) {
+		if (killPID == currentPCB->PID) {
+			DEBUG('s', "Systemcall Kill: PID [%d] kill self\n", currentPCB->PID);
+			ExitSystemcall();
+			machine->WriteRegister(2, 0);
+			return ;
+		}
+
+		DEBUG('s', "Systemcall Kill: Kill PCB\n");
+		killPCB->PrintPCB();
+		Thread *killThread = killPCB->thisThread;
+		AddrSpace *killAddrSpace = killThread->space;
+		killPCB->RemoveChildParentPCB();
+		killPCB->RemoveParentPCBChild(-1);
+		processMgr->RemovePCB(killPCB);
+		DEBUG('s',"Systemcall Kill: ProcessMgr has %d PIDs\n\n", processMgr->GetNumFreePCBs());
+		
+		killAddrSpace->ReleaseMemory();
+		DEBUG('s',"Systemcall Kill: MemoryMgr has %d pages\n\n", memoryMgr->GetNumFreePages());
+		
+		delete killAddrSpace;
+		delete killPCB;
+		
+		// Remove killThread from Scheduler 
+		scheduler->RemoveThread(killThread);
+		machine->WriteRegister(2, 0);
+		
+		UpdatePCRegs();
+		DEBUG('s',"Systemcall Kill: PID [%d] After Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
+		return;
+	}
+
+	DEBUG('s', "Systemcall Kill:  PID [%d] Not Exist\n");
+	machine->WriteRegister(2, -1);
+	
+	UpdatePCRegs();
+	DEBUG('s',"Systemcall Kill: PID [%d] After Update PCRegs\n", currentPCB->PID);
+	PrintMachineRegisters();
+}
+
 void
 ExceptionHandler(ExceptionType which)
 {
@@ -271,6 +375,12 @@ ExceptionHandler(ExceptionType which)
 	}
 	else if ((which == SyscallException) && (type == SC_Yield)) {
 		YieldSystemcall();
+	}
+	else if ((which == SyscallException) && (type == SC_Join)) {
+		JoinSystemcall();
+	}
+	else if ((which == SyscallException) && (type == SC_Kill)) {
+		KillSystemcall();
 	}
     else {
 		DEBUG('s', "SyscallException %d, This Exception %d, Tye %d\n", SyscallException, which, type);

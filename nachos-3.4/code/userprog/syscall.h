@@ -30,6 +30,8 @@
 #define SC_Fork		9
 #define SC_Yield	10
 
+#define SC_Kill         11 // CHANGED
+
 #ifndef IN_ASM
 
 /* The system call interface.  These are the operations the Nachos
@@ -117,12 +119,15 @@ void Close(OpenFileId id);
 /* Fork a thread to run a procedure ("func") in the *same* address space 
  * as the current thread.
  */
-void Fork(void (*func)());
+int Fork(void (*func)());
 
 /* Yield the CPU to another runnable thread, whether in this address space 
  * or not. 
  */
 void Yield();		
+
+/* CHANGED Kill Systemcall is added */
+int Kill(int PID);
 
 #endif /* IN_ASM */
 

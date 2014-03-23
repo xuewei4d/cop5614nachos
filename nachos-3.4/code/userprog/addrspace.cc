@@ -218,6 +218,7 @@ AddrSpace* AddrSpace::Fork() {
 	DEBUG('s',"PID [%d] AddrSpace Fork\n", thisPCB->PID);
 	if (numPages > memoryMgr->GetNumFreePages()) {
 	    DEBUG('s', "AddrSpace Not Enough Space!\n");
+		DEBUG('s', "ProcessMgr has %d pages\n", memoryMgr->GetNumFreePages());
 		return NULL;
 	}
 	

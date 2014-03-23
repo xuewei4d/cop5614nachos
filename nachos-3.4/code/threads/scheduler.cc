@@ -145,3 +145,13 @@ Scheduler::Print()
     printf("Ready list contents:\n");
     readyList->Mapcar((VoidFunctionPtr) ThreadPrint);
 }
+
+// Add **** for Systemcall
+#ifdef USER_PROGRAM
+void Scheduler::RemoveThread(Thread *inputThread){
+	DEBUG('s', "Scheduler Remove Thread [0x%x]\n", inputThread);
+	readyList->RemoveByElement((void *)inputThread);
+	DEBUG('s', "Scheduler Finish Remove\n");
+	threadToBeDestroyed = inputThread;
+}
+#endif

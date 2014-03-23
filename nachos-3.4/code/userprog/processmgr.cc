@@ -1,10 +1,12 @@
 #include "processmgr.h"
 
-ProcessMgr::ProcessMgr():pidMap(PIDMAP_SIZE), pidLock("PID LOCK") {
+ProcessMgr::ProcessMgr(int size):pidMap(size), pidLock("PID LOCK") {
+	NumTotalPID = size;
+	allPCB = new PCB*[size];
 }
 
 ProcessMgr::~ProcessMgr() {
-
+	delete [] allPCB;
 }
 
 PCB *ProcessMgr::CreatePCB() {
@@ -23,6 +25,7 @@ PCB *ProcessMgr::CreatePCB() {
 		pidLock.Acquire();
 		newPID = pidMap.Find();
 		newPCB = new PCB(newPID);
+		allPCB[newPID] = newPCB;
 		pidLock.Release();
 	}
 	DEBUG('s',"ProcessMgr Create PCB [%d]\n", newPCB->PID);
@@ -35,6 +38,7 @@ void ProcessMgr::RemovePCB(PCB *inputPCB) {
 	pidLock.Acquire();
 	int pid = inputPCB->PID;
 	pidMap.Clear(pid);
+	allPCB[pid] = NULL;
 	pidLock.Release();
 	DEBUG('s',"\n");
 }
@@ -45,4 +49,27 @@ int ProcessMgr::GetNumFreePCBs(){
 	int numClear = pidMap.NumClear();
 	pidLock.Release();
 	return numClear;
+}
+
+bool ProcessMgr::IsSet(int inputPID) {
+	pidLock.Acquire();
+	bool t = pidMap.Test(inputPID);
+	pidLock.Release();
+	return t;
+}
+
+PCB *ProcessMgr::GetPCB(int inputPID) {
+	pidLock.Acquire();
+	if (pidMap.Test(inputPID)) {
+		PCB *pcb = allPCB[inputPID];
+		DEBUG('s', "ProcessMgr find PCB PID[%d]\n", inputPID);
+		pidLock.Release();
+		return pcb;
+	}
+	else {
+		DEBUG('s', "ProcessMgr Not find PCB PID [%d]\n", inputPID);
+		pidLock.Release();
+		return NULL;
+	}
+
 }
