@@ -16,6 +16,7 @@
 #include "copyright.h"
 #include "filesys.h"
 #include "pcb.h"
+
 #define UserStackSize		1024 	// increase this as necessary!
 
 class AddrSpace {
@@ -38,6 +39,9 @@ class AddrSpace {
     void SaveUserRegisters();
     void RestoreUserRegisters();
     void PrintUserRegisters();
+    bool Translate(int virtAddr, int * physAddr, int size);
+    int ReadFile(OpenFile* file, int virtAddr, int size, int fileAddr);
+    bool ReplaceMemory(OpenFile *executable);
 
     PCB *thisPCB;
     int userRegisters[NumTotalRegs];

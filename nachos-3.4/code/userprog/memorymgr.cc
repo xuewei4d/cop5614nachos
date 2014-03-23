@@ -21,9 +21,9 @@ void MemoryMgr::ClearPage(int pageNumber) {
   memoryLock.Release();
 }
 
-int MemoryMgr::GetNumFreePages() {
+unsigned int MemoryMgr::GetNumFreePages() {
   memoryLock.Acquire();
-  int numClearPages = memoryMap.NumClear();
+  unsigned int numClearPages = memoryMap.NumClear();
   memoryLock.Release();
   return numClearPages;
 }

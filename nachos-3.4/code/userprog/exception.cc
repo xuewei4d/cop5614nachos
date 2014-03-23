@@ -67,11 +67,11 @@ void ExitSystemcall() {
 	currentPCB->RemoveChildParentPCB();
 	currentPCB->RemoveParentPCBChild(val);
 	processMgr->RemovePCB(currentPCB);
-	DEBUG('s',"System %d PIDs\n", processMgr->GetNumFreePCBs());
+	DEBUG('s',"System ProcessMgr %d PIDs\n\n", processMgr->GetNumFreePCBs());
 	
 	currentAddrSpace->PrintPageTable();
 	currentAddrSpace->ReleaseMemory();
-	DEBUG('s',"System memory %d pages\n", memoryMgr->GetNumFreePages());
+	DEBUG('s',"System MemoryMgr %d pages\n\n", memoryMgr->GetNumFreePages());
 	delete currentAddrSpace;
 	delete currentPCB;
 	currentThread->Finish();
@@ -152,11 +152,105 @@ void ForkSystemcall() {
 	// 7. Write Register 2
 	machine->WriteRegister(2, childPCB->PID);
 
+	DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
 	PrintMachineRegisters();
 	UpdatePCRegs();
+	DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
 	PrintMachineRegisters();
 }
 
+bool ReadString(int stringAddr, char *stringBuffer, int size, AddrSpace *currentAddrSpace) {
+	DEBUG('s', "ReadString\n");
+	char c;
+	int physAddr;
+	int curBuffer = 0;
+	int virtAddr = stringAddr;
+	do{
+		if (currentAddrSpace->Translate(virtAddr, &physAddr, 1)) {
+			bcopy(machine->mainMemory + physAddr, &c, 1);
+			stringBuffer[curBuffer] = c;
+			curBuffer ++;
+			virtAddr ++;
+		}
+		else {
+			DEBUG('s', "ReadString Translate Error\n");
+			return false;
+		}
+		
+	}while(c != '\0' && curBuffer < size);
+	
+	DEBUG('s',"ReadString Reads %s\n", stringBuffer);
+	return true;
+	
+}
+
+/*
+  We dont use Readmem function which is forbidden.
+ */
+void ExecSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	DEBUG('s',"Systemcall Exec: PID [%d]\n", 
+			currentAddrSpace->thisPCB->PID);
+	PrintMachineRegisters();
+	
+	// 1. read path
+	int filenameAddr = machine->ReadRegister(4);
+	char *filename = new char[256];
+	ReadString(filenameAddr, filename, 256, currentAddrSpace);
+
+	
+	OpenFile *executable = fileSystem->Open(filename);
+	if (executable == NULL) {
+		DEBUG('s', "PID [%d] Unable to open file %s\n", currentPCB->PID, filename);
+		machine->WriteRegister(2, -1);
+		
+		DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
+		UpdatePCRegs();
+		DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
+    }
+	else {
+		// Replace Memory;
+		bool replaceSuccess = currentAddrSpace->ReplaceMemory(executable);
+		if (!replaceSuccess) {
+			machine->WriteRegister(2, -1);
+			DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
+			PrintMachineRegisters();
+			UpdatePCRegs();
+			DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
+			PrintMachineRegisters();
+			
+		}
+		delete executable;			// close file
+		currentAddrSpace->InitRegisters();		// set the initial register values
+		currentAddrSpace->RestoreState();		// load page table register
+		
+		delete []filename;
+		DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
+		machine->WriteRegister(2, 1);
+		DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
+		PrintMachineRegisters();
+	}
+}
+
+void YieldSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	DEBUG('s',"Systemcall Yield: PID [%d]\n", 
+			currentAddrSpace->thisPCB->PID);
+	PrintMachineRegisters();
+	
+	currentThread->Yield();
+	
+	DEBUG('s',"PID [%d] Before Update PCRegs\n", currentPCB->PID);
+	PrintMachineRegisters();
+	UpdatePCRegs();
+	DEBUG('s',"PID [%d] After Update PCRegs\n", currentPCB->PID);
+	PrintMachineRegisters();
+}
 void
 ExceptionHandler(ExceptionType which)
 {
@@ -172,7 +266,14 @@ ExceptionHandler(ExceptionType which)
 	else if ((which == SyscallException) && (type == SC_Fork)) {
 		ForkSystemcall();
 	}
+	else if ((which == SyscallException) && (type == SC_Exec)) {
+		ExecSystemcall();
+	}
+	else if ((which == SyscallException) && (type == SC_Yield)) {
+		YieldSystemcall();
+	}
     else {
+		DEBUG('s', "SyscallException %d, This Exception %d, Tye %d\n", SyscallException, which, type);
 		printf("Unexpected user mode exception %d %d\n", which, type);
 		ASSERT(FALSE);
     }

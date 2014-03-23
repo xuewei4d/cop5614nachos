@@ -14,7 +14,7 @@ class MemoryMgr {
   ~MemoryMgr();
   int GetPage();                        // return first clear page; if not return -1
   void ClearPage(int pageNumber);            // reset page
-  int GetNumFreePages();                 // number of free pages
+  unsigned int GetNumFreePages();                 // number of free pages
 
  private:
   BitMap memoryMap;
