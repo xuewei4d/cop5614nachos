@@ -1,7 +1,7 @@
 #include "syscall.h"
 
 void usememory(){
-  Exec("../test/memory");
+  Exec("test/memory");
 }
 
 int main()

@@ -30,7 +30,7 @@ void PCB::RemoveChildParentPCB() {
 		childrenPCB.Mapcar(setParentPCBNULL);
 	}
 	else
-		DEBUG('s',"PCB [%d] Remove 0 Child's Parent\n", PID);
+		DEBUG('s',"PCB [%d] Remove No Child's Parent\n", PID);
 	DEBUG('s',"\n");
 }
 

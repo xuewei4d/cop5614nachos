@@ -368,8 +368,8 @@ bool AddrSpace::ReplaceMemory(OpenFile *executable) {
     unsigned int newNumPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
 
-	DEBUG('s', "PID [%d] AddressSpace ReplaceMemory: Require %d pages, Free %d pages\n",
-			thisPCB->PID, newNumPages, memoryMgr->GetNumFreePages());
+	DEBUG('s', "PID [%d] AddressSpace ReplaceMemory: Require %d pages, Free %d pages, Old %d pages\n",
+			thisPCB->PID, newNumPages, memoryMgr->GetNumFreePages(), numPages);
 	
 	if (int(newNumPages) - int(numPages) > int(memoryMgr->GetNumFreePages())) {
 		DEBUG('s', "PID [%d] AddressSpace ReplaceMemory: Not enough free pages\n",
