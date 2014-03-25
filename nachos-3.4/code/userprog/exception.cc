@@ -59,7 +59,9 @@ void ExitSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	int val = machine->ReadRegister(4);
-
+	
+	printf("System Call: [%d] invoked Exit\n", currentPCB->PID);
+	printf("Process [%d] exited with status [%d]\n", currentPCB->PID, val);
 	DEBUG('s',"Systemcall Exit: PID [%d], Value %d\n", 
 			currentAddrSpace->thisPCB->PID, val);
 	PrintMachineRegisters();
@@ -98,6 +100,7 @@ void Dummy(int d) {
 void ForkSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
+	printf("System Call: [%d] invoked Fork\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Fork: PID [%d]\n", 
 			currentPCB->PID);
 	PrintMachineRegisters();
@@ -142,6 +145,7 @@ void ForkSystemcall() {
 
 	// 4. 
 	int childPCReg = machine->ReadRegister(4);
+	printf("Process [%d] Fork: start at address [0x%x] with [%d] pages memory\n", currentPCB->PID, childPCReg, childAddrSpace->getNumPages());
 	DEBUG('s',"Systemcall Fork: PID [%d] Fork Child New PCReg %d\n", 
 			currentPCB->PID, childPCReg);
 	PrintMachineRegisters();
@@ -197,6 +201,7 @@ bool ReadString(int stringAddr, char *stringBuffer, int size, AddrSpace *current
 void ExecSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
+	printf("System Call: [%d] invoked Exec\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Exec: PID [%d]\n", currentPCB->PID);
 	PrintMachineRegisters();
 	
@@ -204,7 +209,7 @@ void ExecSystemcall() {
 	int filenameAddr = machine->ReadRegister(4);
 	char *filename = new char[256];
 	ReadString(filenameAddr, filename, 256, currentAddrSpace);
-	
+	printf("Exec Program: [%d] loading [%s]\n", currentPCB->PID, filename);
 	OpenFile *executable = fileSystem->Open(filename);
 	if (executable == NULL) {
 		DEBUG('s', "Systemcall Exec: PID [%d] Unable to open file %s\n", currentPCB->PID, filename);
@@ -242,6 +247,7 @@ void ExecSystemcall() {
 void YieldSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
+	printf("System call: [%d] invoked Yield\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Yield: PID [%d]\n", 
 			currentAddrSpace->thisPCB->PID);
 	PrintMachineRegisters();
@@ -257,6 +263,7 @@ void JoinSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	int joinPID = machine->ReadRegister(4);
+	printf("System Call: [%d] invoked Join\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Join: PID [%d] join [%d]\n", 
 			currentPCB->PID, joinPID);
 	PrintMachineRegisters();
@@ -310,11 +317,13 @@ void KillSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	int killPID = machine->ReadRegister(4);
+	printf("System Call: [%d] invoked Kill\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Kill: PID [%d] kill [%d]\n", 
 			currentPCB->PID, killPID);
 	PrintMachineRegisters();
 	PCB *killPCB = processMgr->GetPCB(killPID);
 	if (killPCB != NULL) {
+		printf("Process [%d] killed process [%d]\n", currentPCB->PID, killPID);
 		if (killPID == currentPCB->PID) {
 			DEBUG('s', "Systemcall Kill: PID [%d] kill self\n", currentPCB->PID);
 			ExitSystemcall();
@@ -346,7 +355,7 @@ void KillSystemcall() {
 		PrintMachineRegisters();
 		return;
 	}
-
+	printf("Process [%d] cannot kill process [%d]: does not exist\n", currentPCB->PID, killPID);
 	DEBUG('s', "Systemcall Kill:  PID [%d] Not Exist\n");
 	machine->WriteRegister(2, -1);
 	

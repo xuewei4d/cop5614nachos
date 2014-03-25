@@ -42,6 +42,7 @@ class AddrSpace {
     bool Translate(int virtAddr, int * physAddr, int size);
     int ReadFile(OpenFile* file, int virtAddr, int size, int fileAddr);
     bool ReplaceMemory(OpenFile *executable);
+    unsigned int getNumPages() { return numPages;}
 
     PCB *thisPCB;
     int userRegisters[NumTotalRegs];
