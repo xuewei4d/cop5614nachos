@@ -2,10 +2,10 @@
 #define PROCESSMGR_H
 #define PIDMAP_SIZE 3
 
-#include "pcb.h"
 #include "bitmap.h"
 #include "synch.h"
 
+class PCB;
 class Lock;
 
 class ProcessMgr{

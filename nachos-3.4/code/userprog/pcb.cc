@@ -1,13 +1,26 @@
 #include "pcb.h"
+#include "sofmgr.h"
+#include "machine.h"
+#include "pof.h"
+
+extern SOFMgr *sofMgr;
 
 PCB::PCB(unsigned int inputPID) : 
 		PID(inputPID), thisThread(NULL), parentPCB(NULL), 
-		childrenPCB(), childExitValue(0) {
+		childrenPCB(), childExitValue(0), pofMap(POF_MAXNUM) {
 	parentPCB = 0;
 }
 
 PCB::~PCB() {
-	
+	for (int i = 0; i < POF_MAXNUM; ++i) {
+		if (pofMap.Test(i)) {
+			pofMap.Clear(i);
+			int sofIndex = pofArray[i]->sofIndex;
+			sofMgr->RemoveSOF(sofIndex);
+			delete pofArray[i];
+		}
+
+	}
 }
 
 void PCB::AppendChildPCB(PCB *inputPCB) {
@@ -73,4 +86,64 @@ void PCB::PrintPCB() {
 PCB *PCB::GetChildPCB(int childPID){
 	PCB *childPCB = (PCB *)childrenPCB.Search(childPID);
 	return childPCB;
+}
+
+
+int PCB::FindPOFByName(char *filename) {
+	for (int i = 0; i < POF_MAXNUM; ++i)
+		if (pofMap.Test(i) && strcmp(filename, pofArray[i]->filename) == 0) 
+			return i;
+	return -1;
+
+}
+
+int PCB::GetNumFreePOF() { 
+	return pofMap.NumClear(); 
+}
+
+int PCB::CreatePOF(int sofIndex, char *filename) {
+	int pofIndex = pofMap.Find();
+	if (pofIndex == -1) {
+		DEBUG('s',"PCB AddSOFIndex: Not enough POF space\n");
+		return -1;
+	}
+	POF *newPOF = new POF(sofIndex, filename);
+	pofArray[pofIndex] = newPOF;
+	return pofIndex;
+}
+
+void PCB::PrintPOF(){
+	DEBUG('s', "PCB PrintPOF:\n");
+	for(int i = 0; i < POF_MAXNUM; ++i) {
+		if (pofMap.Test(i))
+			DEBUG('s',"POF %d: Filename %s, SOF Index %d, offset %d\t", 
+					i, pofArray[i]->filename, pofArray[i]->sofIndex, pofArray[i]->offset);
+	}
+	DEBUG('s',"\n\n");
+}
+
+void PCB::RemovePOF(int pofIndex) {
+	if (pofMap.Test(pofIndex)) {
+		pofMap.Clear(pofIndex);
+		delete pofArray[pofIndex];
+		DEBUG('s',"PCB RemovePOF %d\n", pofIndex);
+	}
+	else
+		DEBUG('s',"PCB RemovePOF: Error POFIndex %d\n", pofIndex);
+}
+
+bool PCB::TestPOF(int pofIndex) { 
+	return pofMap.Test(pofIndex); 
+}
+
+void PCB::SetPOFoffset(int pofIndex, int of) { 
+	pofArray[pofIndex]->offset = of; 
+}
+
+int PCB::GetPOFoffset(int pofIndex) { 
+	return pofArray[pofIndex]->offset; 
+}
+
+int PCB::GetPOFsofIndex(int pofIndex) {
+	return pofArray[pofIndex]->sofIndex; 
 }

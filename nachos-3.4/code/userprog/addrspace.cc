@@ -265,7 +265,7 @@ void AddrSpace::PrintUserRegisters() {
 }
 
 bool AddrSpace::Translate(int virtAddr, int * physAddr, int size) {
-	DEBUG('s',"AddrSpace Translate 0x%x, size %d = ", virtAddr, size);
+//	DEBUG('s',"AddrSpace Translate 0x%x, size %d = ", virtAddr, size);
 	unsigned int vpn, offset, pageFrame;
 	if (virtAddr < 0) {
 		DEBUG('s',"AddrSpace Translate virtAddr < 0\n");
@@ -291,64 +291,110 @@ bool AddrSpace::Translate(int virtAddr, int * physAddr, int size) {
 	pageTable[vpn].use = TRUE;
 	*physAddr = pageFrame * PageSize + offset;
 	ASSERT((*physAddr >= 0) && ((*physAddr + size) <= MemorySize));
-	DEBUG('s', "Phys Addr 0x%x\n", *physAddr);
+//	DEBUG('s', "Phys Addr 0x%x\n", *physAddr);
 	return true;
 }
 
 
-int AddrSpace::ReadFile(OpenFile* file, int virtAddr, 
-		int size, int fileAddr) {
-	DEBUG('s', "AddrSpace ReadFile\n");
+bool AddrSpace::ReadString(int stringAddr, char *stringBuffer, int size) {
+	char c;
+	int physAddr;
+	int curBuffer = 0;
+	int virtAddr = stringAddr;
+	do{
+		if (Translate(virtAddr, &physAddr, 1)) {
+			bcopy(machine->mainMemory + physAddr, &c, 1);
+			stringBuffer[curBuffer] = c;
+			curBuffer ++;
+			virtAddr ++;
+		}
+		else {
+			DEBUG('s', "AddrSpace ReadString: Translate Error\n");
+			return false;
+		}
+		
+	}while(c != '\0' && curBuffer < size);
+	
+	DEBUG('s',"AddrSpace ReadString: Reads %s\n", stringBuffer);
+	return true;
+	
+}
 
+void AddrSpace::userReadWrite(char *buffer, int virtAddr, int size, char opt){
 	int physAddr = 0;
-
 	int curVirtAddr = virtAddr;
 	int curBuffer = 0;
 	int leftSize = size;
 	int copySize = 0;
-	char *buffer = new char[size];
-	file->ReadAt(buffer, size, fileAddr);
 
 	if (virtAddr % PageSize != 0) {
 		copySize = min(size, PageSize - virtAddr % PageSize);
 		if (Translate(curVirtAddr, &physAddr, copySize)) {
-			DEBUG('s',"AddrSpace ReadFile Head Partial Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
+			DEBUG('s',"TPRW  Head Partial Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
 					curVirtAddr, physAddr, copySize);
-			bcopy(buffer + curBuffer, machine->mainMemory + physAddr, copySize);
+			if (opt == 'r') {
+				bzero(machine->mainMemory + physAddr, copySize);
+				bcopy(buffer + curBuffer, machine->mainMemory + physAddr, copySize);
+			}
+			else {
+				bzero(buffer + curBuffer, copySize);
+				bcopy(machine->mainMemory + physAddr, buffer + curBuffer, copySize);
+			}
 			leftSize -= copySize;
 			curBuffer += copySize;
 			curVirtAddr += copySize;
 		}
 		else
-			DEBUG('s',"AddrSpace ReadFile Head Partial Copy Error: virtAddr 0x%x\n", curVirtAddr);
+			DEBUG('s',"TPRW Head Partial Copy Error: virtAddr 0x%x\n", curVirtAddr);
 	}
 
 	while (leftSize >= PageSize) {
 		if (Translate(curVirtAddr, &physAddr, PageSize)) {
-			DEBUG('s',"AddrSpace ReadFile Whole Page Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
+			DEBUG('s',"TPRW Whole Page Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
 					curVirtAddr, physAddr, PageSize);
-			bcopy(buffer + curBuffer, machine->mainMemory + physAddr, PageSize);
+			if (opt == 'r') {
+				bzero(machine->mainMemory + physAddr, PageSize);
+				bcopy(buffer + curBuffer, machine->mainMemory + physAddr, PageSize);
+			}
+			else {
+				bzero(buffer + curBuffer, PageSize);
+				bcopy(machine->mainMemory + physAddr, buffer + curBuffer, PageSize);
+			}
 			leftSize -= PageSize;
 			curBuffer += PageSize;
 			curVirtAddr += PageSize;
 		}
 		else
-			DEBUG('s',"AddrSpace ReadFile Whole Page Copy Error: virtAddr 0x%x\n", curVirtAddr);
+			DEBUG('s',"TPRW Whole Page Copy Error: virtAddr 0x%x\n", curVirtAddr);
 	}
 	
 	if (leftSize != 0) {
 		if (Translate(curVirtAddr, &physAddr, leftSize)) {
-			DEBUG('s',"AddrSpace ReadFile Last Partial Page Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
+			DEBUG('s',"TPRW Last Partial Page Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
 					curVirtAddr, physAddr, leftSize);
-			bcopy(buffer + curBuffer, machine->mainMemory + physAddr, leftSize);
+			if (opt == 'r') {
+				bzero(machine->mainMemory + physAddr, leftSize);
+				bcopy(buffer + curBuffer, machine->mainMemory + physAddr, leftSize);
+			}
+			else {
+				bzero(buffer + curBuffer, leftSize);
+				bcopy(machine->mainMemory + physAddr, buffer + curBuffer, leftSize);
+			}
 			curBuffer += leftSize;
 			curVirtAddr += leftSize;
 		}
 		else
-			DEBUG('s', "AddrSpace ReadFile Last Partial Page Copy Error: vitAddr 0x%x\n", curVirtAddr);
+			DEBUG('s', "TPRW Last Partial Page Copy Error: vitAddr 0x%x\n", curVirtAddr);
 	}
-	DEBUG('s', "AddrSpace ReadFile curBuffer %d\n", curBuffer);
 	ASSERT(curBuffer == size);
+}
+
+void AddrSpace::ReadFile(OpenFile* file, int virtAddr, 
+		int size, int fileAddr) {
+	DEBUG('s', "AddrSpace ReadFile\n");
+	char *buffer = new char[size];
+	file->ReadAt(buffer, size, fileAddr);
+	userReadWrite(buffer, virtAddr, size, 'r');
 	delete []buffer;
 }
 

@@ -39,8 +39,10 @@ class AddrSpace {
     void SaveUserRegisters();
     void RestoreUserRegisters();
     void PrintUserRegisters();
+    void userReadWrite(char *buffer, int virtAddr, int size, char opt);
+    bool ReadString(int stringAddr, char *stringBuffer, int size);
     bool Translate(int virtAddr, int * physAddr, int size);
-    int ReadFile(OpenFile* file, int virtAddr, int size, int fileAddr);
+    void ReadFile(OpenFile* file, int virtAddr, int size, int fileAddr);
     bool ReplaceMemory(OpenFile *executable);
     unsigned int getNumPages() { return numPages;}
 

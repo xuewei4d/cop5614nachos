@@ -2,7 +2,6 @@
 #define MEMORYMGR_H
 
 #include "bitmap.h"
-#include "machine.h"
 #include "synch.h"
 
 class BitMap;

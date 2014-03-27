@@ -25,6 +25,7 @@
 #include "system.h"
 #include "syscall.h"
 
+#include "pof.h"
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -64,7 +65,6 @@ void ExitSystemcall() {
 	printf("Process [%d] exited with status [%d]\n", currentPCB->PID, val);
 	DEBUG('s',"Systemcall Exit: PID [%d], Value %d\n", 
 			currentAddrSpace->thisPCB->PID, val);
-	PrintMachineRegisters();
 	
 	currentPCB->RemoveChildParentPCB();
 	currentPCB->RemoveParentPCBChild(val);
@@ -103,7 +103,6 @@ void ForkSystemcall() {
 	printf("System Call: [%d] invoked Fork\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Fork: PID [%d]\n", 
 			currentPCB->PID);
-	PrintMachineRegisters();
 
 	// 1. save old process registers
 	currentAddrSpace->SaveUserRegisters();
@@ -115,8 +114,6 @@ void ForkSystemcall() {
 		machine->WriteRegister(2, -1);
 
 		UpdatePCRegs();
-		DEBUG('s',"Systemcall Fork: PID [%d] After Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
 		return;
 	}
 	AddrSpace *childAddrSpace = currentAddrSpace->Fork();
@@ -125,8 +122,6 @@ void ForkSystemcall() {
 		processMgr->RemovePCB(childPCB);
 
 		UpdatePCRegs();
-		DEBUG('s',"Systemcall Fork: PID [%d] After Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
 		return;
 	}
 	childAddrSpace->thisPCB = childPCB;
@@ -148,11 +143,11 @@ void ForkSystemcall() {
 	printf("Process [%d] Fork: start at address [0x%x] with [%d] pages memory\n", currentPCB->PID, childPCReg, childAddrSpace->getNumPages());
 	DEBUG('s',"Systemcall Fork: PID [%d] Fork Child New PCReg %d\n", 
 			currentPCB->PID, childPCReg);
-	PrintMachineRegisters();
+
 	machine->WriteRegister(PCReg, childPCReg);
 	machine->WriteRegister(NextPCReg, childPCReg + 4);
 	machine->WriteRegister(PrevPCReg, childPCReg - 4);
-	PrintMachineRegisters();
+
 	childAddrSpace->SaveUserRegisters();
 	childAddrSpace->PrintUserRegisters();
 	
@@ -166,49 +161,20 @@ void ForkSystemcall() {
 	machine->WriteRegister(2, childPCB->PID);
 
 	UpdatePCRegs();
-	DEBUG('s',"Systemcall Fork: PID [%d] After Update PCRegs\n", currentPCB->PID);
-	PrintMachineRegisters();
 }
 
-bool ReadString(int stringAddr, char *stringBuffer, int size, AddrSpace *currentAddrSpace) {
-	DEBUG('s', "ReadString\n");
-	char c;
-	int physAddr;
-	int curBuffer = 0;
-	int virtAddr = stringAddr;
-	do{
-		if (currentAddrSpace->Translate(virtAddr, &physAddr, 1)) {
-			bcopy(machine->mainMemory + physAddr, &c, 1);
-			stringBuffer[curBuffer] = c;
-			curBuffer ++;
-			virtAddr ++;
-		}
-		else {
-			DEBUG('s', "ReadString Translate Error\n");
-			return false;
-		}
-		
-	}while(c != '\0' && curBuffer < size);
-	
-	DEBUG('s',"ReadString Reads %s\n", stringBuffer);
-	return true;
-	
-}
 
-/*
-  We dont use Readmem function which is forbidden.
- */
 void ExecSystemcall() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	printf("System Call: [%d] invoked Exec\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Exec: PID [%d]\n", currentPCB->PID);
-	PrintMachineRegisters();
+
 	
 	// 1. read path
 	int filenameAddr = machine->ReadRegister(4);
 	char *filename = new char[256];
-	ReadString(filenameAddr, filename, 256, currentAddrSpace);
+	currentAddrSpace->ReadString(filenameAddr, filename, 256);
 	printf("Exec Program: [%d] loading [%s]\n", currentPCB->PID, filename);
 	OpenFile *executable = fileSystem->Open(filename);
 	if (executable == NULL) {
@@ -217,8 +183,6 @@ void ExecSystemcall() {
 		delete []filename;
 		
 		UpdatePCRegs();
-		DEBUG('s',"Systemcall Exec: PID [%d] After Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
 		return ;
     }
 
@@ -229,8 +193,6 @@ void ExecSystemcall() {
 		delete []filename;
 		
 		UpdatePCRegs();
-		DEBUG('s',"Systemcall Exec: PID [%d] After Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
 		return;
 	}
 	delete executable;			// close file
@@ -240,8 +202,6 @@ void ExecSystemcall() {
 	delete []filename;
 	
 	machine->WriteRegister(2, 1);
-	DEBUG('s',"Systemcall Exec: PID [%d] After Update PCRegs\n", currentPCB->PID);
-	PrintMachineRegisters();
 }
 
 void YieldSystemcall() {
@@ -250,13 +210,10 @@ void YieldSystemcall() {
 	printf("System call: [%d] invoked Yield\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Yield: PID [%d]\n", 
 			currentAddrSpace->thisPCB->PID);
-	PrintMachineRegisters();
 	
 	currentThread->Yield();
 	
 	UpdatePCRegs();
-	DEBUG('s',"Systemcall Yield: PID [%d] After Update PCRegs\n", currentPCB->PID);
-	PrintMachineRegisters();
 }
 
 void JoinSystemcall() {
@@ -266,7 +223,6 @@ void JoinSystemcall() {
 	printf("System Call: [%d] invoked Join\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Join: PID [%d] join [%d]\n", 
 			currentPCB->PID, joinPID);
-	PrintMachineRegisters();
 	
 	// 1. check child
 	if (joinPID < 0 || joinPID >= processMgr->NumTotalPID) {
@@ -274,8 +230,6 @@ void JoinSystemcall() {
 		machine->WriteRegister(2, -1);
 
 		UpdatePCRegs();
-		DEBUG('s',"Systemcall Join: PID [%d] After Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
 		return ;
 	}
 
@@ -287,8 +241,6 @@ void JoinSystemcall() {
 		machine->WriteRegister(2, -1);
 
 		UpdatePCRegs();
-		DEBUG('s',"Systemcall Join: PID [%d] After Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
 		return;
 	}
 	DEBUG('s', "Systemcall Join: currentPCB\n");
@@ -309,8 +261,6 @@ void JoinSystemcall() {
 	machine->WriteRegister(2, currentPCB->childExitValue);
 	
 	UpdatePCRegs();
-	DEBUG('s',"Systemcall Join: PID [%d] After Update PCRegs\n", currentPCB->PID);
-	PrintMachineRegisters();
 }
 
 void KillSystemcall() {
@@ -320,7 +270,7 @@ void KillSystemcall() {
 	printf("System Call: [%d] invoked Kill\n", currentPCB->PID);
 	DEBUG('s',"Systemcall Kill: PID [%d] kill [%d]\n", 
 			currentPCB->PID, killPID);
-	PrintMachineRegisters();
+
 	PCB *killPCB = processMgr->GetPCB(killPID);
 	if (killPCB != NULL) {
 		printf("Process [%d] killed process [%d]\n", currentPCB->PID, killPID);
@@ -351,8 +301,6 @@ void KillSystemcall() {
 		machine->WriteRegister(2, 0);
 		
 		UpdatePCRegs();
-		DEBUG('s',"Systemcall Kill: PID [%d] After Update PCRegs\n", currentPCB->PID);
-		PrintMachineRegisters();
 		return;
 	}
 	printf("Process [%d] cannot kill process [%d]: does not exist\n", currentPCB->PID, killPID);
@@ -360,8 +308,192 @@ void KillSystemcall() {
 	machine->WriteRegister(2, -1);
 	
 	UpdatePCRegs();
-	DEBUG('s',"Systemcall Kill: PID [%d] After Update PCRegs\n", currentPCB->PID);
-	PrintMachineRegisters();
+}
+
+void CreateSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	printf("System Call: [%d] invoked Create\n", currentPCB->PID);
+	DEBUG('s',"Systemcall Create: PID [%d]\n", currentPCB->PID);
+
+	int filenameAddr = machine->ReadRegister(4);
+	char *filename = new char[256];
+
+	currentAddrSpace->ReadString(filenameAddr, filename, 256);
+	fileSystem->Create(filename, 0);
+
+	delete []filename;	
+	UpdatePCRegs();
+}
+
+/*
+  Return Process Open File ID, not System Open File ID
+  This is different the instructions from Ten steps. We don't think returning a System File ID is reasonable.
+ */
+void OpenSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	printf("System Call: [%d] invoked Open\n", currentPCB->PID);
+	DEBUG('s',"Systemcall Open: PID [%d]\n", currentPCB->PID);
+
+	int filenameAddr = machine->ReadRegister(4);
+	char *filename = new char[256];
+
+	currentAddrSpace->ReadString(filenameAddr, filename, 256);
+	int sofIndex = sofMgr->FindSOFByName(filename);
+	int pofIndex = currentPCB->FindPOFByName(filename);
+	
+	DEBUG('s', "Systemcall Open: %s, sofindex %d, pofindex %d\n\n",
+			filename, sofIndex, pofIndex);
+   
+	if (sofIndex == -1) {
+		// file not in the system
+		ASSERT(pofIndex == -1);
+		if (currentPCB->GetNumFreePOF() ==  0 || sofMgr->GetNumFreeSOF() == 0) {
+			DEBUG('s', "Systemcall Open: Not enough POF/SOF space\n\n");
+			machine->WriteRegister(2,-1);
+			delete []filename;
+			
+			UpdatePCRegs();
+			return ;
+		}
+
+		sofIndex = sofMgr->CreateSOF(filename);
+		if (sofIndex == -1) {
+			DEBUG('s', "Systemcall Open: Cannot Create SOF\n\n");
+			machine->WriteRegister(2,-1);
+			delete []filename;
+			
+			UpdatePCRegs();
+			return ;
+		}
+		DEBUG('s', "Systemcall Open: create SOF Index %d\n\n", sofIndex);
+	}
+	if (pofIndex == -1) {
+		pofIndex = currentPCB->CreatePOF(sofIndex, filename);
+		if (pofIndex == -1) {
+			DEBUG('s', "SystemCall Open: Cannot Create POF\n\n");
+			machine->WriteRegister(2, -1);
+			delete []filename;
+			
+			UpdatePCRegs();
+			return ;
+		}
+		DEBUG('s', "Systemcall Open: create POF Index %d\n\n", pofIndex);
+	}
+	sofMgr->IncSOFCounter(sofIndex);
+	machine->WriteRegister(2, pofIndex + 2); 	// return process open file index, 
+	                                            // since ConsoleInput and ConsoleOutput is 0 and 1.
+
+	sofMgr->PrintSOF();
+	currentPCB->PrintPOF();
+	delete []filename;
+	UpdatePCRegs();
+}
+
+void CloseSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	printf("System Call: [%d] invoked Close\n", currentPCB->PID);
+	DEBUG('s',"Systemcall Close: PID [%d]\n", currentPCB->PID);
+	
+	int pofIndex = machine->ReadRegister(4);
+	DEBUG('s', "Systemcall Close: pofIndex: [%d]\n", pofIndex);
+	pofIndex -= 2;
+	int sofIndex = currentPCB->pofArray[pofIndex]->sofIndex;
+	DEBUG('s', "Systemcall Close: sofIndex: [%d]\n", sofIndex);
+	currentPCB->RemovePOF(pofIndex);
+	sofMgr->RemoveSOF(sofIndex);
+
+	sofMgr->PrintSOF();
+	currentPCB->PrintPOF();
+	UpdatePCRegs();
+}
+
+void WriteSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	printf("System Call: [%d] invoked Write\n", currentPCB->PID);
+	DEBUG('s',"Systemcall Write: PID [%d]\n", currentPCB->PID);
+	
+	int virtAddr = machine->ReadRegister(4);
+	int size = machine->ReadRegister(5);
+	int pofIndex = machine->ReadRegister(6);
+
+	char *buffer = new char[size + 1];
+	currentAddrSpace->userReadWrite(buffer, virtAddr, size, 'w');
+	buffer[size] = '\0';
+
+	if (pofIndex == ConsoleOutput) {
+		printf("%s\n", buffer);
+	}
+	else if (pofIndex == ConsoleInput) {
+		printf("Systemcall Write: Error, cannot write to ConsoleInput\n");
+	}
+	else if (pofIndex >= 2){
+		int rpofIndex = pofIndex - 2;
+		if (currentPCB->TestPOF(rpofIndex)) {
+			int sofIndex = currentPCB->GetPOFsofIndex(rpofIndex);
+			int offset = currentPCB->GetPOFoffset(rpofIndex);
+			sofMgr->WriteSOF(buffer, size, offset, sofIndex);
+			currentPCB->SetPOFoffset(rpofIndex, offset + size);
+
+			currentPCB->PrintPOF();
+		}
+		else
+			printf("Systemcall Write: Error, [%d] file has not been opened\n", pofIndex + 2);
+	}
+	else
+		printf("Systemcall Write: Error, invalid ID [%d]\n", pofIndex);
+
+	delete []buffer;
+	UpdatePCRegs();
+}
+
+
+void ReadSystemcall() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	printf("System Call: [%d] invoked Read\n", currentPCB->PID);
+	DEBUG('s',"Systemcall Read: PID [%d]\n", currentPCB->PID);
+
+	int virtAddr = machine->ReadRegister(4);
+	int size = machine->ReadRegister(5);
+	int pofIndex = machine->ReadRegister(6);
+
+	char *buffer = new char[size + 1];
+	if (pofIndex == ConsoleInput) {
+		int i = 0;
+		for (i = 0; i < size; ++i)
+			buffer[i] = getchar();
+
+		buffer[size] = '\0';
+		currentAddrSpace->userReadWrite(buffer, virtAddr, size, 'r');
+	}
+	else if (pofIndex == ConsoleOutput) {
+		printf("Systemcall Read: cannot read from consoleOutput\n");
+	}
+	else if (pofIndex >= 2) {
+		int rpofIndex = pofIndex - 2;
+		if (currentPCB->TestPOF(rpofIndex)) {
+			int sofIndex = currentPCB->GetPOFsofIndex(rpofIndex);
+			int offset = currentPCB->GetPOFoffset(rpofIndex);
+			int numRead = 0;
+			numRead = sofMgr->ReadSOF(buffer, size, offset, sofIndex);
+			buffer[size] = '\0';
+			DEBUG('s',"Systemcall Read: Read %s\n", buffer);
+
+			currentAddrSpace->userReadWrite(buffer, virtAddr, size, 'r');
+			currentPCB->SetPOFoffset(rpofIndex, offset + numRead);
+			machine->WriteRegister(2, numRead);
+		}
+
+	}
+	else
+		printf("Systemcall Read: Error, invalid ID[%d]\n", pofIndex);
+
+	delete []buffer;
+	UpdatePCRegs();
 }
 
 void
@@ -390,6 +522,21 @@ ExceptionHandler(ExceptionType which)
 	}
 	else if ((which == SyscallException) && (type == SC_Kill)) {
 		KillSystemcall();
+	}
+	else if((which == SyscallException) && (type == SC_Create)) {
+		CreateSystemcall();
+	}
+	else if((which == SyscallException) && (type == SC_Open)) {
+		OpenSystemcall();
+	}
+	else if((which == SyscallException) && (type == SC_Close)) {
+		CloseSystemcall();
+	}
+	else if((which == SyscallException) && (type == SC_Write)) {
+		WriteSystemcall();
+	}
+	else if((which == SyscallException) && (type == SC_Read)) {
+		ReadSystemcall();
 	}
     else {
 		DEBUG('s', "SyscallException %d, This Exception %d, Tye %d\n", SyscallException, which, type);

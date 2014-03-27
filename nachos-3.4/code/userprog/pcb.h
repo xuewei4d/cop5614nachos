@@ -2,8 +2,11 @@
 #define PCB_H
 
 #include "list.h"
-#include "machine.h"
+#include "bitmap.h"
 
+#define POF_MAXNUM 32
+
+class POF;
 class Thread;
 
 class PCB{
@@ -18,11 +21,23 @@ public:
   PCB *GetChildPCB(int childPID);
   void PrintPCB();
 
+  int FindPOFByName(char *filename);
+  int GetNumFreePOF();
+  int CreatePOF(int sofIndex, char *filename);
+  void PrintPOF();
+  void RemovePOF(int pofIndex);
+  bool TestPOF(int pofIndex);
+  void SetPOFoffset(int pofIndex, int of);
+  int GetPOFoffset(int pofIndex);
+  int GetPOFsofIndex(int pofIndex);
+
   int PID;
   Thread* thisThread;
   PCB* parentPCB;  
   List childrenPCB;
   int childExitValue;
 
+  BitMap pofMap;
+  POF *pofArray[POF_MAXNUM];
 };
 #endif

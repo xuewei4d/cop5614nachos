@@ -1,4 +1,5 @@
 #include "memorymgr.h"
+#include "machine.h"
 
 MemoryMgr::MemoryMgr(): 
   memoryMap(NumPhysPages), memoryLock("Memory Lock") {

@@ -82,7 +82,10 @@ USERPROG_H = ../userprog/addrspace.h\
 	../machine/translate.h\
 	../userprog/memorymgr.h\
 	../userprog/processmgr.h\
-	../userprog/pcb.h
+	../userprog/pcb.h\
+	../userprog/pof.h\
+	../userprog/sof.h\
+	../userprog/sofmgr.h
 
 USERPROG_C = ../userprog/addrspace.cc\
 	../userprog/bitmap.cc\
@@ -94,10 +97,13 @@ USERPROG_C = ../userprog/addrspace.cc\
 	../machine/translate.cc\
 	../userprog/memorymgr.cc\
 	../userprog/processmgr.cc\
-	../userprog/pcb.cc
+	../userprog/pcb.cc\
+	../userprog/pof.cc\
+	../userprog/sof.cc\
+	../userprog/sofmgr.cc
 
 USERPROG_O = addrspace.o bitmap.o exception.o progtest.o console.o machine.o \
-	mipssim.o translate.o memorymgr.o processmgr.o pcb.o
+	mipssim.o translate.o memorymgr.o processmgr.o pcb.o pof.o sof.o sofmgr.o
 
 VM_H = 
 VM_C = 

@@ -1,4 +1,5 @@
 #include "processmgr.h"
+#include "pcb.h"
 
 ProcessMgr::ProcessMgr(int size):pidMap(size), pidLock("PID LOCK") {
 	NumTotalPID = size;

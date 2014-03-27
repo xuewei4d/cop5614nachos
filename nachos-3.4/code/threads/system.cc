@@ -31,6 +31,7 @@ SynchDisk   *synchDisk;
 Machine *machine;	// user program memory and registers
 MemoryMgr *memoryMgr;
 ProcessMgr *processMgr;
+SOFMgr* sofMgr;
 #endif
 
 #ifdef NETWORK
@@ -153,6 +154,7 @@ Initialize(int argc, char **argv)
     machine = new Machine(debugUserProg);	// this must come first
 	memoryMgr = new MemoryMgr();
 	processMgr = new ProcessMgr();
+	sofMgr = new SOFMgr();
 #endif
 
 #ifdef FILESYS
@@ -184,6 +186,7 @@ Cleanup()
     delete machine;
 	delete memoryMgr;
 	delete processMgr;
+	delete sofMgr;
 #endif
 
 #ifdef FILESYS_NEEDED
