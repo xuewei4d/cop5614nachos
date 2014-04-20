@@ -185,11 +185,11 @@ void ExecSystemcall() {
 		delete []filename;
 		
 		UpdatePCRegs();
-		return ;
+		Abort();
     }
 
 	// Replace Memory;
-	bool replaceSuccess = currentAddrSpace->ReplaceMemory(executable);
+	bool replaceSuccess = currentAddrSpace->ReplaceMemory(executable, filename);
 	if (!replaceSuccess) {
 		machine->WriteRegister(2, -1);
 		delete []filename;
@@ -503,7 +503,7 @@ void PageFaultHandler() {
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	int virtAddr = machine->ReadRegister(BadVAddrReg);
-	DEBUG('s', "PageFault Virtual Address %d\n", virtAddr);
+	DEBUG('s', "PID [%d] PageFault Virtual Address %d\n", currentPCB->PID, virtAddr);
 
 	currentAddrSpace->PageIn(virtAddr);
 	VMLock.Release();
@@ -515,7 +515,7 @@ void ReadOnlyExceptionHandler() {
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	int virtAddr = machine->ReadRegister(BadVAddrReg);
 	
-	DEBUG('s', "ReadOnlyFault Virtual Address %d\n", virtAddr);
+	DEBUG('s', "PID [%d] ReadOnlyFault Virtual Address %d\n", currentPCB->PID, virtAddr);
 	currentAddrSpace->COW(virtAddr);
 	VMLock.Release();
 }

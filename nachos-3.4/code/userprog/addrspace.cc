@@ -60,10 +60,11 @@ SwapHeader (NoffHeader *noffH)
 //	"executable" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(OpenFile *executable, PCB *newPCB)
+AddrSpace::AddrSpace(OpenFile *executable, PCB *newPCB, char *filename)
 {
 	thisPCB = newPCB;
 	thisPCB->thisAddrSpace = this;
+	strcpy(execfilename, filename);
 
     NoffHeader noffH;
     unsigned int i, size;
@@ -229,21 +230,21 @@ void AddrSpace::ReleaseMemory() {
 	DEBUG('s',"\n\n");
 }
 
-AddrSpace::AddrSpace() {
-
+AddrSpace::AddrSpace(PCB *newPCB, char *filename) {
+	thisPCB = newPCB;
+	strcpy(execfilename, filename);
 }
 
 // CHANGED for project 4
 AddrSpace* AddrSpace::Fork(PCB *newPCB) {
 	DEBUG('s',"PID [%d] AddrSpace Fork\n", thisPCB->PID);
-	if (numPages > memoryMgr->GetNumFreePages()) {
-	    printf("AddrSpace Not Enough Space!\n");
-		printf("ProcessMgr has %d pages\n", memoryMgr->GetNumFreePages());
-		return NULL;
-	}
+// 	if (numPages > memoryMgr->GetNumFreePages()) {
+// 	    printf("AddrSpace Not Enough Space!\n");
+// 		printf("ProcessMgr has %d pages\n", memoryMgr->GetNumFreePages());
+// 		return NULL;
+// 	}
 	
-	AddrSpace * newAddrSpace = new AddrSpace();
-	newAddrSpace->thisPCB = newPCB;
+	AddrSpace * newAddrSpace = new AddrSpace(newPCB, execfilename);
 	newPCB->thisAddrSpace = newAddrSpace;
 
 	newAddrSpace->numPages = numPages;
@@ -253,7 +254,9 @@ AddrSpace* AddrSpace::Fork(PCB *newPCB) {
 
 		// COW implementation
 //		newAddrSpace->pageTable[i].physicalPage = memoryMgr->GetPage(newPCB->PID);    // allocate memory space
+
 		newAddrSpace->pageTable[i].physicalPage = pageTable[i].physicalPage;    // share pages
+
 		memoryMgr->SetShare(pageTable[i].physicalPage, newAddrSpace->thisPCB->PID);
 		DEBUG('s', "Fork New COW Page %d\t", 
 				newAddrSpace->pageTable[i].physicalPage);
@@ -281,7 +284,9 @@ AddrSpace* AddrSpace::Fork(PCB *newPCB) {
 	newAddrSpace->CodeDataVirtAddr = CodeDataVirtAddr;
 	newAddrSpace->CodeDataFileAddr = CodeDataFileAddr;
 	newAddrSpace->SwapFileSize = SwapFileSize;
-	newAddrSpace->AllocateSwapFile(swapfile);
+	OpenFile *executable = fileSystem->Open(execfilename);
+	newAddrSpace->AllocateSwapFile(executable);
+	delete executable;
 
 	DEBUG('s',"\n\n");
 	return newAddrSpace;
@@ -324,9 +329,9 @@ bool AddrSpace::Translate(int virtAddr, int * physAddr, int size) {
 		return false;
 	}
 	else if(!pageTable[vpn].valid) {
-		printf("AddrSpace Translate virtual page %d not valid!\n",
-				virtAddr);
-		return false;
+		printf("AddrSpace Translate virtual page %d not valid! Now PageIn!\n",
+				vpn);
+		PageIn(virtAddr);
 	}
 	pageFrame = pageTable[vpn].physicalPage;
 	if (pageFrame >= NumPhysPages) {
@@ -348,8 +353,10 @@ bool AddrSpace::ReadString(int stringAddr, char *stringBuffer, int size) {
 	int virtAddr = stringAddr;
 	do{
 		if (Translate(virtAddr, &physAddr, 1)) {
+			DEBUG('s', "AddrSpace ReadString virtAddr %d, physAddr %d\n", virtAddr, physAddr);
 			bcopy(machine->mainMemory + physAddr, &c, 1);
 			stringBuffer[curBuffer] = c;
+			DEBUG('s', "AddrSpace ReadString %c\n",c);
 			curBuffer ++;
 			virtAddr ++;
 		}
@@ -443,7 +450,8 @@ void AddrSpace::ReadFile(OpenFile* file, int virtAddr,
 	delete []buffer;
 }
 
-bool AddrSpace::ReplaceMemory(OpenFile *executable) {
+bool AddrSpace::ReplaceMemory(OpenFile *executable, char *filename) {
+	strcpy(execfilename, filename);
 	NoffHeader noffH;
     unsigned int i, size;
 
@@ -558,7 +566,12 @@ void AddrSpace::PageIn(int virtAddr) {
  		}
  		else {
 			int pageStart = vpn*PageSize;
-			ReadFile(swapfile, pageStart, PageSize, pageStart);
+			char *buffer = new char [PageSize];
+			swapfile->ReadAt(buffer, PageSize, pageStart);
+			bzero(machine->mainMemory + ppn*PageSize, PageSize);
+			bcopy(buffer, machine->mainMemory + ppn*PageSize, PageSize);
+			delete []buffer;
+
 			DEBUG('s', "PID [%d] AddrSpace PageIn: VPN %d to PPN %d\n", thisPCB->PID, vpn, ppn);
 			printf("L [%d]: [%d] -> [%d]\n", thisPCB->PID, vpn, ppn);
 		}
