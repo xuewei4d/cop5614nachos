@@ -1,6 +1,6 @@
 #ifndef PROCESSMGR_H
 #define PROCESSMGR_H
-#define PIDMAP_SIZE 3
+#define PIDMAP_SIZE 32
 
 #include "bitmap.h"
 #include "synch.h"

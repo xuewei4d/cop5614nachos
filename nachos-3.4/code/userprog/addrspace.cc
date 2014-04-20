@@ -60,8 +60,11 @@ SwapHeader (NoffHeader *noffH)
 //	"executable" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(OpenFile *executable)
+AddrSpace::AddrSpace(OpenFile *executable, PCB *newPCB)
 {
+	thisPCB = newPCB;
+	thisPCB->thisAddrSpace = this;
+
     NoffHeader noffH;
     unsigned int i, size;
 
@@ -78,52 +81,59 @@ AddrSpace::AddrSpace(OpenFile *executable)
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
 
-    ASSERT(numPages <= memoryMgr->GetNumFreePages());		// CHANGED check we're not trying
+	CodeDataSize = noffH.code.size + noffH.initData.size;
+	CodeDataVirtAddr = noffH.code.virtualAddr;
+	CodeDataFileAddr = noffH.code.inFileAddr;
+	SwapFileSize = size;
+	AllocateSwapFile(executable);
+
+    // ASSERT(numPages <= memoryMgr->GetNumFreePages());		// CHANGED check we're not trying
 						// to run anything too big --
 						// at least until we have
 						// virtual memory
 
-    DEBUG('s', "AddrSpace Initializing address space, num pages %d, size %d\n", 
+    DEBUG('s', "PID [%d] AddrSpace Initializing address space, num pages %d, size %d\n", thisPCB->PID,
 					numPages, size);
 // first, set up the translation 
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
 		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-		pageTable[i].physicalPage = memoryMgr->GetPage();  // CHANGED
-		DEBUG('s',"Create New Page %d\t", pageTable[i].physicalPage);
-		pageTable[i].valid = TRUE;
+		pageTable[i].physicalPage = -1; // CHANGED for project 4
+		pageTable[i].valid = FALSE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
 		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
 		                                // a separate page, we could set its 
                                 		// pages to be read-only
-		// CHANGED
-		bzero(machine->mainMemory + pageTable[i].physicalPage*PageSize, PageSize);
+		pageTable[i].zeroFilled = FALSE;
+
+		// For project before Project 4
+        // bzero(machine->mainMemory + pageTable[i].physicalPage*PageSize, PageSize);
     }
-	DEBUG('s',"\n\n");
-    
+	DEBUG('s', "PID [%d] AddrSpace code virtualAddr 0x%x, inFileAddr 0x%x\n", thisPCB->PID, noffH.code.virtualAddr, noffH.code.inFileAddr);
+	DEBUG('s', "PID [%d] AddrSpace data virtualAddr 0x%x, inFileAddr 0x%x\n", thisPCB->PID, noffH.initData.virtualAddr, noffH.initData.inFileAddr);
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
 //    bzero(machine->mainMemory, size);
-
+// CHANGED for project 4
 // then, copy in the code and data segments into memory
-    if (noffH.code.size > 0) {
-        DEBUG('s', "AddrSpace Initializing code segment, at 0x%x, size %d\n", 
-			noffH.code.virtualAddr, noffH.code.size);
-//        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
-//			noffH.code.size, noffH.code.inFileAddr);
+//     if (noffH.code.size > 0) {
+//         DEBUG('s', "PID [%d] AddrSpace Initializing code segment, at 0x%x, size %d\n", thisPCB->PID,
+// 			noffH.code.virtualAddr, noffH.code.size);
+// //        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
+// //			noffH.code.size, noffH.code.inFileAddr);
 
-		ReadFile(executable, noffH.code.virtualAddr, noffH.code.size, noffH.code.inFileAddr);
-    }
-    if (noffH.initData.size > 0) {
-        DEBUG('s', "AddrSpace Initializing data segment, at 0x%x, size %d\n", 
-			noffH.initData.virtualAddr, noffH.initData.size);
-//        executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-//			noffH.initData.size, noffH.initData.inFileAddr);
-		ReadFile(executable, noffH.initData.virtualAddr, noffH.initData.size, noffH.initData.inFileAddr);
-    }
-	printf("Loaded Program: [%d] code |  [%d] data | [%d] bss\n", noffH.code.size, 
-			noffH.initData.size, noffH.uninitData.size);
+// 		ReadFile(executable, noffH.code.virtualAddr, noffH.code.size, noffH.code.inFileAddr);
+//     }
+//     if (noffH.initData.size > 0) {
+//         DEBUG('s', "PID [%d] AddrSpace Initializing data segment, at 0x%x, size %d\n", thisPCB->PID,
+// 			noffH.initData.virtualAddr, noffH.initData.size);
+// //        executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
+// //			noffH.initData.size, noffH.initData.inFileAddr);
+// 		ReadFile(executable, noffH.initData.virtualAddr, noffH.initData.size, noffH.initData.inFileAddr);
+//     }
+// 	printf("Loaded Program: [%d] code |  [%d] data | [%d] bss\n", noffH.code.size, 
+// 			noffH.initData.size, noffH.uninitData.size);
 }
 
 //----------------------------------------------------------------------
@@ -133,6 +143,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 
 AddrSpace::~AddrSpace()
 {
+	delete swapfile;
 	delete pageTable;
 }
 
@@ -165,7 +176,7 @@ AddrSpace::InitRegisters()
    // allocated the stack; but subtract off a bit, to make sure we don't
    // accidentally reference off the end!
     machine->WriteRegister(StackReg, numPages * PageSize - 16);
-    DEBUG('s', "Initializing stack register to %d\n", numPages * PageSize - 16);
+    DEBUG('s', "PID [%d] Initializing stack register to %d\n", thisPCB->PID, numPages * PageSize - 16);
 }
 
 //----------------------------------------------------------------------
@@ -204,9 +215,16 @@ void AddrSpace::PrintPageTable() {
 void AddrSpace::ReleaseMemory() {
 	DEBUG('s', "PID [%d] AddrSpace Release %d pages\n", thisPCB->PID, numPages);
 	for (unsigned int i = 0; i < numPages; ++i) {
-		DEBUG('s', "Clear page %d\t", 
-				pageTable[i].physicalPage);
-		memoryMgr->ClearPage(pageTable[i].physicalPage);
+		if (pageTable[i].physicalPage != -1 && !pageTable[i].readOnly) {
+			memoryMgr->ClearPage(pageTable[i].physicalPage);
+			DEBUG('s', "ClearPage %d\t", pageTable[i].physicalPage);
+		}
+		else if (pageTable[i].physicalPage != -1 && pageTable[i].readOnly) {
+			memoryMgr->UnsetShare(pageTable[i].physicalPage, thisPCB->PID);
+			DEBUG('s', "UnSharePage %d\t", pageTable[i].physicalPage);
+		}
+		else
+			DEBUG('s', "SkipPage %d\t", pageTable[i].physicalPage);
 	}
 	DEBUG('s',"\n\n");
 }
@@ -215,29 +233,56 @@ AddrSpace::AddrSpace() {
 
 }
 
-AddrSpace* AddrSpace::Fork() {
+// CHANGED for project 4
+AddrSpace* AddrSpace::Fork(PCB *newPCB) {
 	DEBUG('s',"PID [%d] AddrSpace Fork\n", thisPCB->PID);
 	if (numPages > memoryMgr->GetNumFreePages()) {
-	    DEBUG('s', "AddrSpace Not Enough Space!\n");
-		DEBUG('s', "ProcessMgr has %d pages\n", memoryMgr->GetNumFreePages());
+	    printf("AddrSpace Not Enough Space!\n");
+		printf("ProcessMgr has %d pages\n", memoryMgr->GetNumFreePages());
 		return NULL;
 	}
 	
 	AddrSpace * newAddrSpace = new AddrSpace();
+	newAddrSpace->thisPCB = newPCB;
+	newPCB->thisAddrSpace = newAddrSpace;
+
 	newAddrSpace->numPages = numPages;
 	newAddrSpace->pageTable = new TranslationEntry[numPages];
 	for (unsigned int i = 0; i < numPages; i++) {
 		newAddrSpace->pageTable[i].virtualPage = pageTable[i].virtualPage;
-		newAddrSpace->pageTable[i].physicalPage = memoryMgr->GetPage();    // allocate memory space
-		DEBUG('s', "Fork New Page %d\t", 
+
+		// COW implementation
+//		newAddrSpace->pageTable[i].physicalPage = memoryMgr->GetPage(newPCB->PID);    // allocate memory space
+		newAddrSpace->pageTable[i].physicalPage = pageTable[i].physicalPage;    // share pages
+		memoryMgr->SetShare(pageTable[i].physicalPage, newAddrSpace->thisPCB->PID);
+		DEBUG('s', "Fork New COW Page %d\t", 
 				newAddrSpace->pageTable[i].physicalPage);
 		newAddrSpace->pageTable[i].valid = pageTable[i].valid;
 		newAddrSpace->pageTable[i].use = pageTable[i].use;
 		newAddrSpace->pageTable[i].dirty = pageTable[i].dirty;
-		newAddrSpace->pageTable[i].readOnly = pageTable[i].readOnly;
-		bcopy(machine->mainMemory + pageTable[i].physicalPage*PageSize, 
-				machine->mainMemory + newAddrSpace->pageTable[i].physicalPage*PageSize, PageSize);
+		
+		if (newAddrSpace->pageTable[i].physicalPage != -1) {
+			newAddrSpace->pageTable[i].readOnly = TRUE;
+			pageTable[i].readOnly = TRUE;
+			
+		}
+		else
+			newAddrSpace->pageTable[i].readOnly = pageTable[i].readOnly;
+
+		newAddrSpace->pageTable[i].zeroFilled = pageTable[i].zeroFilled;
+
+// For projects before project 4
+//		bcopy(machine->mainMemory + pageTable[i].physicalPage*PageSize, 
+//				machine->mainMemory + newAddrSpace->pageTable[i].physicalPage*PageSize, PageSize);
+
 	}
+	
+	newAddrSpace->CodeDataSize = CodeDataSize;
+	newAddrSpace->CodeDataVirtAddr = CodeDataVirtAddr;
+	newAddrSpace->CodeDataFileAddr = CodeDataFileAddr;
+	newAddrSpace->SwapFileSize = SwapFileSize;
+	newAddrSpace->AllocateSwapFile(swapfile);
+
 	DEBUG('s',"\n\n");
 	return newAddrSpace;
 }
@@ -268,24 +313,24 @@ bool AddrSpace::Translate(int virtAddr, int * physAddr, int size) {
 //	DEBUG('s',"AddrSpace Translate 0x%x, size %d = ", virtAddr, size);
 	unsigned int vpn, offset, pageFrame;
 	if (virtAddr < 0) {
-		DEBUG('s',"AddrSpace Translate virtAddr < 0\n");
+		printf("AddrSpace Translate virtAddr < 0\n");
 		return false;
 	}
 	vpn = (unsigned)virtAddr / PageSize;
 	offset = (unsigned)virtAddr % PageSize;
 	if (vpn >= numPages) {
-		DEBUG('s', "AddrSpace Translate virtual page %d too large for numPages %d!\n",
+		printf("AddrSpace Translate virtual page %d too large for numPages %d!\n",
 				virtAddr, numPages);
 		return false;
 	}
 	else if(!pageTable[vpn].valid) {
-		DEBUG('s',"AddrSpace Translate virtual page %d not valid!\n",
+		printf("AddrSpace Translate virtual page %d not valid!\n",
 				virtAddr);
 		return false;
 	}
 	pageFrame = pageTable[vpn].physicalPage;
 	if (pageFrame >= NumPhysPages) {
-		DEBUG('s', "AddrSpace Translate Frame > NumPhysPages!\n", pageFrame);
+		printf("AddrSpace Translate Frame > NumPhysPages!\n");
 		return false;
 	}
 	pageTable[vpn].use = TRUE;
@@ -309,13 +354,13 @@ bool AddrSpace::ReadString(int stringAddr, char *stringBuffer, int size) {
 			virtAddr ++;
 		}
 		else {
-			DEBUG('s', "AddrSpace ReadString: Translate Error\n");
+			printf("PID [%d] AddrSpace ReadString: Translate Error\n", thisPCB->PID);
 			return false;
 		}
 		
 	}while(c != '\0' && curBuffer < size);
 	
-	DEBUG('s',"AddrSpace ReadString: Reads %s\n", stringBuffer);
+	DEBUG('s',"PID [%d] AddrSpace ReadString: Reads %s\n", thisPCB->PID, stringBuffer);
 	return true;
 	
 }
@@ -330,8 +375,8 @@ void AddrSpace::userReadWrite(char *buffer, int virtAddr, int size, char opt){
 	if (virtAddr % PageSize != 0) {
 		copySize = min(size, PageSize - virtAddr % PageSize);
 		if (Translate(curVirtAddr, &physAddr, copySize)) {
-			DEBUG('s',"TPRW  Head Partial Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
-					curVirtAddr, physAddr, copySize);
+//			DEBUG('s',"TPRW  Head Partial Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
+//					curVirtAddr, physAddr, copySize);
 			if (opt == 'r') {
 				bzero(machine->mainMemory + physAddr, copySize);
 				bcopy(buffer + curBuffer, machine->mainMemory + physAddr, copySize);
@@ -345,13 +390,13 @@ void AddrSpace::userReadWrite(char *buffer, int virtAddr, int size, char opt){
 			curVirtAddr += copySize;
 		}
 		else
-			DEBUG('s',"TPRW Head Partial Copy Error: virtAddr 0x%x\n", curVirtAddr);
+			printf("PID [%d] TPRW Head Partial Copy Error: virtAddr 0x%x\n", thisPCB->PID, curVirtAddr);
 	}
 
 	while (leftSize >= PageSize) {
 		if (Translate(curVirtAddr, &physAddr, PageSize)) {
-			DEBUG('s',"TPRW Whole Page Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
-					curVirtAddr, physAddr, PageSize);
+//			DEBUG('s',"TPRW Whole Page Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
+//					curVirtAddr, physAddr, PageSize);
 			if (opt == 'r') {
 				bzero(machine->mainMemory + physAddr, PageSize);
 				bcopy(buffer + curBuffer, machine->mainMemory + physAddr, PageSize);
@@ -365,13 +410,13 @@ void AddrSpace::userReadWrite(char *buffer, int virtAddr, int size, char opt){
 			curVirtAddr += PageSize;
 		}
 		else
-			DEBUG('s',"TPRW Whole Page Copy Error: virtAddr 0x%x\n", curVirtAddr);
+			printf("PID [%d] TPRW Whole Page Copy Error: virtAddr 0x%x\n", thisPCB->PID, curVirtAddr);
 	}
 	
 	if (leftSize != 0) {
 		if (Translate(curVirtAddr, &physAddr, leftSize)) {
-			DEBUG('s',"TPRW Last Partial Page Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
-					curVirtAddr, physAddr, leftSize);
+//			DEBUG('s',"TPRW Last Partial Page Copy: virtAddr 0x%x, physAddr 0x%x, size %d\n", 
+//					curVirtAddr, physAddr, leftSize);
 			if (opt == 'r') {
 				bzero(machine->mainMemory + physAddr, leftSize);
 				bcopy(buffer + curBuffer, machine->mainMemory + physAddr, leftSize);
@@ -384,14 +429,14 @@ void AddrSpace::userReadWrite(char *buffer, int virtAddr, int size, char opt){
 			curVirtAddr += leftSize;
 		}
 		else
-			DEBUG('s', "TPRW Last Partial Page Copy Error: vitAddr 0x%x\n", curVirtAddr);
+			printf("PID [%d] TPRW Last Partial Page Copy Error: vitAddr 0x%x\n", thisPCB->PID, curVirtAddr);
 	}
 	ASSERT(curBuffer == size);
 }
 
 void AddrSpace::ReadFile(OpenFile* file, int virtAddr, 
 		int size, int fileAddr) {
-	DEBUG('s', "AddrSpace ReadFile\n");
+	DEBUG('s', "PID [%d] AddrSpace ReadFile\n", thisPCB->PID);
 	char *buffer = new char[size];
 	file->ReadAt(buffer, size, fileAddr);
 	userReadWrite(buffer, virtAddr, size, 'r');
@@ -411,18 +456,24 @@ bool AddrSpace::ReplaceMemory(OpenFile *executable) {
     // how big is address space?
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
 			+ UserStackSize;	// we need to increase the size
-						// to leave room for the stack
+						        // to leave room for the stack
     unsigned int newNumPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
+
+	CodeDataSize = noffH.code.size + noffH.initData.size;
+	CodeDataVirtAddr = noffH.code.virtualAddr;
+	CodeDataFileAddr = noffH.code.inFileAddr;
+	SwapFileSize = size;
+	AllocateSwapFile(executable);
 
 	DEBUG('s', "PID [%d] AddressSpace ReplaceMemory: Require %d pages, Free %d pages, Old %d pages\n",
 			thisPCB->PID, newNumPages, memoryMgr->GetNumFreePages(), numPages);
 	
-	if (int(newNumPages) - int(numPages) > int(memoryMgr->GetNumFreePages())) {
-		DEBUG('s', "PID [%d] AddressSpace ReplaceMemory: Not enough free pages\n",
-				thisPCB->PID);
-		return false;
-	}
+// 	if (int(newNumPages) - int(numPages) > int(memoryMgr->GetNumFreePages())) {
+// 		DEBUG('s', "PID [%d] AddressSpace ReplaceMemory: Not enough free pages\n",
+// 				thisPCB->PID);
+// 		return false;
+// 	}
 
 	ReleaseMemory();
 	delete pageTable;
@@ -430,30 +481,142 @@ bool AddrSpace::ReplaceMemory(OpenFile *executable) {
 	pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
 		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-		pageTable[i].physicalPage = memoryMgr->GetPage();  // CHANGED
-		DEBUG('s',"Create New Page %d\t", pageTable[i].physicalPage);
-		pageTable[i].valid = TRUE;
+//		pageTable[i].physicalPage = memoryMgr->GetPage(thisPCB->PID);  // CHANGED
+
+		pageTable[i].physicalPage = -1;
+		DEBUG('s',"PID [%d] Create New Page %d\t", thisPCB->PID, pageTable[i].physicalPage);
+		pageTable[i].valid = FALSE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
 		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
 		                                // a separate page, we could set its 
                                 		// pages to be read-only
-		bzero(machine->mainMemory + pageTable[i].physicalPage*PageSize, PageSize);
+//		bzero(machine->mainMemory + pageTable[i].physicalPage*PageSize, PageSize);
+		
     }
 	DEBUG('s',"\n\n");
-    
-    if (noffH.code.size > 0) {
-        DEBUG('s', "AddrSpace Initializing code segment, at 0x%x, size %d\n", 
-			noffH.code.virtualAddr, noffH.code.size);
-		ReadFile(executable, noffH.code.virtualAddr, noffH.code.size, noffH.code.inFileAddr);
-    }
+	
+//     if (noffH.code.size > 0) {
+//         DEBUG('s', "PID [%d] AddrSpace Initializing code segment, at 0x%x, size %d\n", thisPCB->PID,
+// 			noffH.code.virtualAddr, noffH.code.size);
+// 		ReadFile(executable, noffH.code.virtualAddr, noffH.code.size, noffH.code.inFileAddr);
+//     }
 
-    if (noffH.initData.size > 0) {
-        DEBUG('s', "AddrSpace Initializing data segment, at 0x%x, size %d\n", 
-			noffH.initData.virtualAddr, noffH.initData.size);
-		ReadFile(executable, noffH.initData.virtualAddr, noffH.initData.size, noffH.initData.inFileAddr);
-    }
+//     if (noffH.initData.size > 0) {
+//         DEBUG('s', "PID [%d] AddrSpace Initializing data segment, at 0x%x, size %d\n", thisPCB->PID,
+// 			noffH.initData.virtualAddr, noffH.initData.size);
+// 		ReadFile(executable, noffH.initData.virtualAddr, noffH.initData.size, noffH.initData.inFileAddr);
+//     }
 	printf("Loaded Program: [%d] code |  [%d] data | [%d] bss\n", noffH.code.size, 
 			noffH.initData.size, noffH.uninitData.size);
 	return true;
+}
+
+void AddrSpace::AllocateSwapFile(OpenFile *openFile) {
+	char swapfilename[128];
+	sprintf(swapfilename, "./test/");
+	char pidchar[16];
+	sprintf(pidchar, "%d.swap", thisPCB->PID);
+	strcat(swapfilename, pidchar);
+	DEBUG('s',"PID [%d] AddrSpace AllocateSwapFile: swap file %s\n", thisPCB->PID, swapfilename);
+
+	fileSystem->Create(swapfilename, 0);
+	swapfile = fileSystem->Open(swapfilename);
+	DEBUG('s', "PID [%d] AddrSpace AllocateSwapFile: 0x%x\n", thisPCB->PID, swapfile);
+
+	// bruteforce
+	char *buffer = new char[SwapFileSize];
+	bzero(buffer, SwapFileSize);
+	int rcount = openFile->ReadAt(buffer, CodeDataSize, CodeDataFileAddr);
+	int wrount = swapfile->WriteAt(buffer, SwapFileSize, 0);
+
+	DEBUG('s', "PID [%d] AddrSpace AllocateSwapFile: CodeDataSize %d, SwapFileSize %d, ReadCount %d, WriteCount %d\n", thisPCB->PID, 
+			CodeDataSize, SwapFileSize, rcount, wrount);
+	delete []buffer;
+
+}
+
+void AddrSpace::PageIn(int virtAddr) {
+	unsigned int vpn;
+	vpn = (unsigned) virtAddr / PageSize;
+	
+	// allocate page
+	int ppn = memoryMgr->GetPage(thisPCB->PID);
+	if (ppn != -1) {
+		pageTable[vpn].virtualPage = vpn;
+		pageTable[vpn].physicalPage = ppn;
+		pageTable[vpn].valid = TRUE;
+		pageTable[vpn].readOnly = FALSE;
+		
+		// zero-filled?
+ 		if (virtAddr >= (CodeDataSize + CodeDataVirtAddr) && 
+ 				!pageTable[vpn].zeroFilled) {
+ 			bzero(machine->mainMemory + ppn*PageSize, PageSize);
+ 			pageTable[vpn].zeroFilled = TRUE;
+ 			DEBUG('s', "PID [%d] AddrSpace PageIn: zero-filled VPN %d\n", thisPCB->PID, vpn);
+ 			printf("Z [%d]: [%d]\n", thisPCB->PID, vpn);
+ 		}
+ 		else {
+			int pageStart = vpn*PageSize;
+			ReadFile(swapfile, pageStart, PageSize, pageStart);
+			DEBUG('s', "PID [%d] AddrSpace PageIn: VPN %d to PPN %d\n", thisPCB->PID, vpn, ppn);
+			printf("L [%d]: [%d] -> [%d]\n", thisPCB->PID, vpn, ppn);
+		}
+
+	}
+	else {
+		printf("PID [%d] AddrSpace PageIn: fail to get new frame\n", thisPCB->PID);
+	}
+	DEBUG('s',"\n");
+}
+
+void AddrSpace::PageOut(int physicalPage) {
+	unsigned int virtPage = 0;
+	for(virtPage = 0; virtPage < numPages; ++virtPage) 
+		if (pageTable[virtPage].physicalPage == physicalPage)
+			break;
+	if (pageTable[virtPage].dirty) {
+		swapfile->WriteAt(machine->mainMemory + physicalPage*PageSize, PageSize, virtPage*PageSize);
+		DEBUG('s',"PID [%d] AddrSpace PageOut: dirty virt %d, physical %d\n", thisPCB->PID, virtPage, physicalPage);
+		printf("S [%d]: [%d]\n", thisPCB->PID, physicalPage);
+	}
+	else {
+		DEBUG('s',"PID [%d] AddrSpace PageOut: not dirty virt %d\n", thisPCB->PID, virtPage);
+		printf("E [%d]: [%d]\n", thisPCB->PID, physicalPage);
+	}
+	pageTable[virtPage].physicalPage = -1;
+	pageTable[virtPage].valid = FALSE;
+	pageTable[virtPage].readOnly = FALSE;
+}
+
+void AddrSpace::COW(int virtAddr) {
+	unsigned int vpn, ppn;
+	vpn = (unsigned) virtAddr / PageSize;
+	ppn = pageTable[vpn].physicalPage;
+	ppn = memoryMgr->GetPage(thisPCB->PID, ppn);
+	if (ppn == -1) {
+		printf("PID [%d] AddrSpace COW: cannot find new free frame\n", thisPCB->PID);
+	}
+	// copy
+	int oppn = pageTable[vpn].physicalPage;
+	pageTable[vpn].physicalPage = ppn;
+	pageTable[vpn].readOnly = FALSE;
+	
+	bcopy(machine->mainMemory + oppn*PageSize, machine->mainMemory + ppn*PageSize, PageSize);
+
+	memoryMgr->UnsetShare(oppn, thisPCB->PID);
+	DEBUG('s',"PID [%d] AddrSpace COW: Old PPN %d, New PPN %d, VPN %d\n", thisPCB->PID, oppn, ppn, vpn);
+	printf("D [%d]: [%d]\n", thisPCB->PID, vpn);
+}
+
+void AddrSpace::UnsetReadOnly(int physicalPage) {
+	int virtPage = 0;
+	for (virtPage = 0; virtPage < numPages; ++virtPage) {
+		if (pageTable[virtPage].physicalPage == physicalPage) {
+			pageTable[virtPage].readOnly = FALSE;
+			break;
+		}
+	}
+	DEBUG('s', "PID [%d] UnsetReadOnly: virtPage %d, PhysicalPage %d\n", 
+			thisPCB->PID, virtPage, physicalPage);
 }

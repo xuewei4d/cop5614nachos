@@ -106,7 +106,7 @@ void ForkSystemcall() {
 
 	// 1. save old process registers
 	currentAddrSpace->SaveUserRegisters();
-	currentAddrSpace->PrintUserRegisters();
+//	currentAddrSpace->PrintUserRegisters();
 
 	// 2. create a PCB and associate
 	PCB *childPCB = processMgr->CreatePCB();
@@ -116,7 +116,7 @@ void ForkSystemcall() {
 		UpdatePCRegs();
 		return;
 	}
-	AddrSpace *childAddrSpace = currentAddrSpace->Fork();
+	AddrSpace *childAddrSpace = currentAddrSpace->Fork(childPCB);
 	if (childAddrSpace == NULL) {
 		machine->WriteRegister(2, -1);
 		processMgr->RemovePCB(childPCB);
@@ -124,7 +124,6 @@ void ForkSystemcall() {
 		UpdatePCRegs();
 		return;
 	}
-	childAddrSpace->thisPCB = childPCB;
 	childAddrSpace->PrintPageTable();
 	
 	// 3. create a new Thread and associate
@@ -149,7 +148,7 @@ void ForkSystemcall() {
 	machine->WriteRegister(PrevPCReg, childPCReg - 4);
 
 	childAddrSpace->SaveUserRegisters();
-	childAddrSpace->PrintUserRegisters();
+//	childAddrSpace->PrintUserRegisters();
 	
 	// 5. Fork
 	childThread->Fork(Dummy, 0);
@@ -496,6 +495,25 @@ void ReadSystemcall() {
 	UpdatePCRegs();
 }
 
+void PageFaultHandler() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	int virtAddr = machine->ReadRegister(BadVAddrReg);
+	DEBUG('s', "PageFault Virtual Address %d\n", virtAddr);
+
+	currentAddrSpace->PageIn(virtAddr);
+	
+}
+
+void ReadOnlyExceptionHandler() {
+	AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->thisPCB;
+	int virtAddr = machine->ReadRegister(BadVAddrReg);
+	
+	DEBUG('s', "ReadOnlyFault Virtual Address %d\n", virtAddr);
+	currentAddrSpace->COW(virtAddr);
+}
+
 void
 ExceptionHandler(ExceptionType which)
 {
@@ -537,6 +555,12 @@ ExceptionHandler(ExceptionType which)
 	}
 	else if((which == SyscallException) && (type == SC_Read)) {
 		ReadSystemcall();
+	}
+	else if(which == PageFaultException) {
+		PageFaultHandler();
+	}
+	else if(which == ReadOnlyException) {
+		ReadOnlyExceptionHandler();
 	}
     else {
 		DEBUG('s', "SyscallException %d, This Exception %d, Tye %d\n", SyscallException, which, type);

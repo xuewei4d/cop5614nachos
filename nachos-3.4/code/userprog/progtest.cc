@@ -36,7 +36,7 @@ StartProcess(char *filename)
 	if (newPCB == NULL) {
 		return;
 	}
-    space = new AddrSpace(executable);    
+    space = new AddrSpace(executable, newPCB);    
 	space->thisPCB = newPCB;
     currentThread->space = space;
 

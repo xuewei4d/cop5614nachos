@@ -8,6 +8,7 @@
 
 class POF;
 class Thread;
+class AddrSpace;
 
 class PCB{
 public:
@@ -36,6 +37,8 @@ public:
   PCB* parentPCB;  
   List childrenPCB;
   int childExitValue;
+
+  AddrSpace *thisAddrSpace;
 
   BitMap pofMap;
   POF *pofArray[POF_MAXNUM];

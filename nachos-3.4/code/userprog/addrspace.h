@@ -21,7 +21,7 @@
 
 class AddrSpace {
   public:
-    AddrSpace(OpenFile *executable);	// Create an address space,
+  AddrSpace(OpenFile *executable, PCB *newPCB);	// Create an address space,
 					// initializing it with the program
 					// stored in the file "executable"
     ~AddrSpace();			// De-allocate an address space
@@ -35,7 +35,7 @@ class AddrSpace {
     void PrintPageTable();
     void ReleaseMemory();
     AddrSpace();
-    AddrSpace* Fork();
+    AddrSpace* Fork(PCB *newPCB);
     void SaveUserRegisters();
     void RestoreUserRegisters();
     void PrintUserRegisters();
@@ -45,10 +45,21 @@ class AddrSpace {
     void ReadFile(OpenFile* file, int virtAddr, int size, int fileAddr);
     bool ReplaceMemory(OpenFile *executable);
     unsigned int getNumPages() { return numPages;}
+    void AllocateSwapFile(OpenFile *openFile);
+    void PageIn(int virtAddr);
+    void PageOut(int physicalPage);
+    void COW(int virtAddr);
+    void UnsetReadOnly(int physicalPage);
 
     PCB *thisPCB;
     int userRegisters[NumTotalRegs];
 
+    unsigned int CodeDataSize;
+    int CodeDataVirtAddr;
+    int CodeDataFileAddr;
+    OpenFile *swapfile;
+    unsigned int SwapFileSize;
+  
   private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!

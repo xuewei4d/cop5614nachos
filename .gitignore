@@ -13,6 +13,7 @@ shell
 sort
 *~
 *.s
+*.swap
 
 # Compiled Object files
 *.slo
