@@ -26,6 +26,9 @@
 #include "syscall.h"
 
 #include "pof.h"
+#include "synch.h"
+
+Lock VMLock("VMLOCK");
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -496,22 +499,25 @@ void ReadSystemcall() {
 }
 
 void PageFaultHandler() {
+	VMLock.Acquire();
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	int virtAddr = machine->ReadRegister(BadVAddrReg);
 	DEBUG('s', "PageFault Virtual Address %d\n", virtAddr);
 
 	currentAddrSpace->PageIn(virtAddr);
-	
+	VMLock.Release();
 }
 
 void ReadOnlyExceptionHandler() {
+	VMLock.Acquire();
 	AddrSpace *currentAddrSpace = currentThread->space;
 	PCB *currentPCB = currentAddrSpace->thisPCB;
 	int virtAddr = machine->ReadRegister(BadVAddrReg);
 	
 	DEBUG('s', "ReadOnlyFault Virtual Address %d\n", virtAddr);
 	currentAddrSpace->COW(virtAddr);
+	VMLock.Release();
 }
 
 void

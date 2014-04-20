@@ -22,25 +22,26 @@ int MemoryMgr::GetPage(int pid, int sharedPage) {
 	unsigned int numClearPages = memoryMap.NumClear();
 	if (numClearPages == 0) {
 		// page out
-		int timemin = frametime[0];
-		int outpage = 0;
-		int i;
-		for (i = 0; i < NumPhysPages; ++i)  {
-			if (timemin > frametime[i] && i != sharedPage) { // skip the shared page for COW
+		int outpage, timemin;
+		if (sharedPage == 0) 
+			outpage = 1;
+		else
+			outpage = 0;
+		timemin = frametime[ outpage ];
+		for (int i = 0; i != NumPhysPages; ++ i )  {
+			if (timemin > frametime[i] && i != sharedPage) {
 				timemin = frametime[i];
 				outpage = i;
 			}
 		}
-		if (i == NumPhysPages)
-			return -1; // No page to be paged out.
+		DEBUG('s', "MemoryMgr Get Victim Page %d\n", outpage);
 
-		for (int outPID = 0; outPID <= PIDMAP_SIZE; ++outPID) {
+		for (int outPID = 0; outPID < PIDMAP_SIZE; ++outPID) {
 			if (framePID[outpage][outPID]) {
 				processMgr->allPCB[outPID]->thisAddrSpace->PageOut(outpage);
 				framePID[outpage][outPID] = FALSE;
 			}
 		}
-
 		pageNumber = outpage;
 		DEBUG('s', "MemoryMgr PageOut page %d\n", pageNumber);
 	}
@@ -72,6 +73,7 @@ unsigned int MemoryMgr::GetNumFreePages() {
 }
 
 void MemoryMgr::UnsetShare(int physicalPage, int PID) {
+	memoryLock.Acquire();
 	framePID[physicalPage][PID] = FALSE;
 	DEBUG('s', "MemoryMgr UnsetShare: PhysicalPage %d, PID %d\n",
 			physicalPage, PID);
@@ -92,7 +94,7 @@ void MemoryMgr::UnsetShare(int physicalPage, int PID) {
 				pid, physicalPage);
 		processMgr->allPCB[pid]->thisAddrSpace->UnsetReadOnly(physicalPage);
 	}
-
+	memoryLock.Release();
 }
 
 void MemoryMgr::SetShare(int physicalPage, int PID) {
