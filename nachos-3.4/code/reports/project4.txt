@@ -1,0 +1,71 @@
+Project 4
+
+------------------------------------------------------------------------
+We modified the some methods of AddrSpace. 
+
+When AddrSpace class is constructured, it does not immediately apply
+new physical frame from MemoryMgr, which is the manager of all
+physical frames. The pageTable in AddrSpace would be set anyway, but
+the physicalPage of every pageTable is -1. 
+
+Then a swapfile for every process is allocated, whose size is the sum
+of size code segment, data segment, uninitialized segment and
+heapsize. We first copy the contents of original executable file into
+a buffer, then copy the contents of the buffer into the swap file.
+
+Once a page fault occurred, the method PageIn of AddrSpace is called,
+which in turn ask a free frame from MemoryMgr. If MemoryMgr finds
+there is a free frame in its repository, it would directly assign this
+new frame to the thread. Meanwhile, it would keep track which thread
+is using which frame, and the time the page is assigned for FIFO
+strategy. If there is no free memory, MemoryMgr will scan all the
+frame to find out which frame is oldest. Then it asks the threads who
+is using that frame to page out the frame. The PageOut is implemented
+in AddrSapce. PageOut will decide whether the frame is dirty or
+not. If it is dirty, PageOut would write the contents into the
+swapfile. If it is not dirty, PageOut will do nothing. Because the
+contents should already be in the swapfile.
+
+For extra credit part, we implemented zero-filled part. If the virtual
+address is larger then the sum of code and data segment sizes, and the
+correspoding virtual page is not zero-filled before, then PageIn
+method in AddrSpace will simply fill the new page with zeros instread
+of loading contents form swap file.
+
+We also implemented COW. In MemoryMgr class, we keep a matrix to store
+which threads are using the frame. The matrix is #frames x #threads
+size. Of course, we should use a vector or list instread of a matrix,
+however the basic data structures are so insufficient. Using Nachos's
+List is cumbersome. 
+
+The workflow is as follows. When a threads invoke "Fork" system call,
+its addrspaces's fork method will copy a page table, but set the
+in-memory pagetable entry to be readonly, and will not copy the
+contents of main memory. Meanwhile, the swap file for the child thread
+is allocated. When a ReadOnly Exception is thrown, the HandleReadOnly
+method of AddrSpace will ask MemoryMgr to get a new frame. And
+MemorgyMgr will make sure that if there is no free frame, it will
+evict an occupied frame, but not the shared frame that the thread
+would copy. Then the thread will copy the frame to a new frame. If
+there is only one thread using the shared frame, MemoryMgr would set
+the last thread's entry of pagetable to be not ReadOnly. If a shared
+frame that many threads are using is evicited, then MemoryMgr will set
+the page table entries of these threads's page table to be not valid,
+not readonly. If in the future the frame is paged in, the page should
+not be immediately readonly.
+
+------------------------------------------------------------------------
+Test cases
+
+in the "code" folder, run
+userprog/nachos -x test/matmult
+userprog/nachos -x test/sort
+userprog/nachos -x test/fork
+userprog/nachos -x test/exec
+
+Running sort program will take a longer time than matmult, please be
+patient.
+
+userprog/nachos -x test/matmult -d s
+
+would give much more detials about running.

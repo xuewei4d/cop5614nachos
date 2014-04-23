@@ -1,0 +1,785 @@
+Project 1 Report
+
+------------------------------------------------------------------------
+Testing instructions: PLEASE DO NOT CHANGE $CFLAGS in the file
+code/Makefile.common AS PROJECT INSTRUCTION GIVES.
+
+PLEASE FOLLOW OUR INSTRUCTION
+set variable $DEFINES in the file threads/makefile correspondingly
+
+------------------------------------------------------------------------
+Exercise 0
+This program has passed 3 test cases that TA provided for project 1.
+
+************************************************************************
+Testing instructions: 
+
+1.  file code/threads/main.cc, around Line 120 
+comment or uncomment correspondingly
+"Ping()", "LockTest()", "SemaphorePing()" 
+
+2. file code/threads/makefile, around Line 10
+Test TA's ConditionTest: DEFINES = -DTHREADS -HW1_LOCKS
+Test TA's LockTest: DEFINES = -DTHREADS -HW1_LOCKS
+Test TA's SemaphoreTest: DEFINES = -DTHREADS -HW1_SEMAPHORES
+
+3. rm threads/*.o
+4. make in the foler 'code'
+5. run code/threads/nachos
+************************************************************************
+Output:
+Exactly the same as outputs that TA gives with any random seed parameter 'rs' 
+
+------------------------------------------------------------------------
+Exercise 1
+
+Pass test cases with any random seed parameter '-rs'
+************************************************************************
+Testing instructioins:
+1. file code/threads/main.cc, around Line 120
+comment three TA's test cases  "Ping()", "LockTest()",
+"SemaphorePing()"
+uncomment "Threadtest(4)"
+
+2. file code/threads/makefile, around Line 10
+Test without SEMAPHORES, DEFINES = -DTHREADS -HW1_NOSEMAPHORES
+Test with SEMAPHORES, DEFINES = -DTHREADS -HW1_SEMAPHORES
+
+3. rm threads/*.o
+4. make in the foler 'code'
+5. run code/threads/nachos
+************************************************************************
+Output without Semaphores:
+
+*** thread 0 sees value 0
+*** thread 1 sees value 0
+*** thread 2 sees value 0
+*** thread 3 sees value 0
+*** thread 4 sees value 0
+*** thread 0 sees value 1
+*** thread 1 sees value 1
+*** thread 2 sees value 1
+*** thread 3 sees value 1
+*** thread 4 sees value 1
+*** thread 0 sees value 2
+*** thread 1 sees value 2
+*** thread 2 sees value 2
+*** thread 3 sees value 2
+*** thread 4 sees value 2
+*** thread 0 sees value 3
+*** thread 1 sees value 3
+*** thread 2 sees value 3
+*** thread 3 sees value 3
+*** thread 4 sees value 3
+*** thread 0 sees value 4
+*** thread 1 sees value 4
+*** thread 2 sees value 4
+*** thread 3 sees value 4
+*** thread 4 sees value 4
+Thread 0 sees final value 5
+Thread 1 sees final value 5
+Thread 2 sees final value 5
+Thread 3 sees final value 5
+Thread 4 sees final value 5
+No threads ready or runnable, and no pending interrupts.
+Assuming the program completed.
+Machine halting!
+
+Ticks: total 590, idle 0, system 590, user 0
+Disk I/O: reads 0, writes 0
+Console I/O: reads 0, writes 0
+Paging: faults 0
+Network I/O: packets received 0, sent 0
+
+Cleaning up...
+************************************************************************
+Output with Semaphores:
+
+*** thread 0 sees value 0
+*** thread 1 sees value 1
+*** thread 2 sees value 2
+*** thread 3 sees value 3
+*** thread 4 sees value 4
+*** thread 3 sees value 5
+*** thread 1 sees value 6
+*** thread 2 sees value 7
+*** thread 1 sees value 8
+*** thread 4 sees value 9
+*** thread 3 sees value 10
+*** thread 0 sees value 11
+*** thread 3 sees value 12
+*** thread 1 sees value 13
+*** thread 4 sees value 14
+*** thread 2 sees value 15
+*** thread 0 sees value 16
+*** thread 3 sees value 17
+*** thread 1 sees value 18
+*** thread 4 sees value 19
+*** thread 2 sees value 20
+*** thread 0 sees value 21
+*** thread 4 sees value 22
+*** thread 2 sees value 23
+*** thread 0 sees value 24
+Thread 0 sees final value 25
+Thread 3 sees final value 25
+Thread 1 sees final value 25
+Thread 4 sees final value 25
+Thread 2 sees final value 25
+No threads ready or runnable, and no pending interrupts.
+Assuming the program completed.
+Machine halting!
+
+Ticks: total 1445, idle 35, system 1410, user 0
+Disk I/O: reads 0, writes 0
+Console I/O: reads 0, writes 0
+Paging: faults 0
+Network I/O: packets received 0, sent 0
+
+Cleaning up...
+************************************************************************
+We change the definition of ThreadTest(int), as well as the declaration,
+and modify the function of SimpleThread(). The new ThreadTest(int)
+creates N new threads, all of which execute a loop 5 times, defined in
+SimpleThread(). Within this loop, a thread reads and writes a shared
+variable. After its first reading and just before it writes the variable
+back with one increment, the thread yiels the CPU control to other
+threads. After it finishing the writing, it yields again before the
+final reading.
+
+The Yield() operation cause context switching between multiple
+threads. One thread overwrites the modification to shared variable
+made created by other threads, which resulting in incorrect increment
+of the shared variable.
+
+Without any syrnchronization technique, when we run Threadtest(4)
+creating threads numbered by 0,1,2,3,4, at the end, these threads
+update the shared variable to 5.
+
+After SimpleThread() is properly synchronized with semaphores, the
+critical section where the shared variable increases, is surrounded by
+a P() and a V() call. Even after the current thread call Yield(), the
+other threads cannot execute because they are blocked in their P()
+call. The scheduler will pick the original thread who is executing
+the critical section to run. Therefore, in this case, semaphores
+guarantee the correctness of synchronization.
+
+The implementation of Barrier also envolves the useage of
+semaphores. The increment of shared variable *count* is synchronized
+by a mutex. Before all threads reach the final print statement, they
+are waiting in the P() call of *barrier* tunstile. When the *count*
+equals the total number of executing threads, *barrier* tunstile
+signals and the blocked threads pass the *barrier* P() call one by one
+as a result of the mechanism of tunstile.
+
+------------------------------------------------------------------------
+Exercise 2
+
+Pass test cases with any random seed parameter '-rs'
+************************************************************************
+Testing instructioins:
+1. file code/threads/main.cc, around Line 120
+comment three TA's test cases  "Ping()", "LockTest()",
+"SemaphorePing()"
+uncomment "Threadtest(4)"
+
+2. file code/threads/makefile, around Line 10
+Test with LOCKS, DEFINES = -DTHREADS -HW1_LOCKS
+
+3. rm threads/*.o
+4. make in the foler 'code'
+5. run code/threads/nachos
+************************************************************************
+Output with Locks:
+
+*** thread 0 sees value 0
+*** thread 1 sees value 1
+*** thread 2 sees value 2
+*** thread 1 sees value 3
+*** thread 4 sees value 4
+*** thread 0 sees value 5
+*** thread 3 sees value 6
+*** thread 0 sees value 7
+*** thread 1 sees value 8
+*** thread 4 sees value 9
+*** thread 2 sees value 10
+*** thread 3 sees value 11
+*** thread 0 sees value 12
+*** thread 1 sees value 13
+*** thread 4 sees value 14
+*** thread 2 sees value 15
+*** thread 3 sees value 16
+*** thread 0 sees value 17
+*** thread 3 sees value 18
+*** thread 4 sees value 19
+*** thread 2 sees value 20
+*** thread 1 sees value 21
+*** thread 3 sees value 22
+*** thread 4 sees value 23
+*** thread 2 sees value 24
+Thread 0 sees final value 25
+Thread 2 sees final value 25
+Thread 1 sees final value 25
+Thread 3 sees final value 25
+Thread 4 sees final value 25
+No threads ready or runnable, and no pending interrupts.
+Assuming the program completed.
+Machine halting!
+
+Ticks: total 1455, idle 65, system 1390, user 0
+Disk I/O: reads 0, writes 0
+Console I/O: reads 0, writes 0
+Paging: faults 0
+Network I/O: packets received 0, sent 0
+
+Cleaning up...
+************************************************************************
+Lock acts like sempaphore, except the existing of the ownership of
+lock. In the implementation, a bool variable *isHeld* indicates
+whether the lock is held or not. The variable *lockHolder* bookkeeps
+the owner of the lock. The *queue* stores the blocked threads waiting
+for the lock. When one thread attemps to acquire the lock, lock will
+test the availability of *isHeld*. If succeeds, *isHeld* becomes TRUE,
+*lockHelder* points to this threads. When a thread tries to release
+the lock, the ownership is tested to prevent other non-holders to
+release the lock. Finally, like semaphores, correctly using Lock
+within SimpleThread() make the correct increment of the shard
+variable.
+
+------------------------------------------------------------------------
+Exercise 3
+
+A condition variable is a synchronization primitive that does not have
+an internal value to check during its function calls (unlike a
+semaphore or a lock), but threads still need be queued to wait on the
+condition. Regarding waiting, we mean they are switched to blocked
+state via a sleep() call. The Wait() function judges if the lock
+passed in is acquired by the thread calling it. Before putting itself
+to sleep, the thread releases the lock, for use by other threads.
+Once, another thread performs a Signal() or Broadcast(), a thread that
+was waiting on the condition will be awaken, and attempt to re-acquire
+the lock. The Signal() function wakes a single thread waiting on the
+condition, while the Broadcast() function wakes all threads waiting on
+the condition. These functions can only work successfully if the
+thread calling them has acquired the Lock passed to them.
+
+Finally, we successfully use Condition during the next exercise 4.
+
+------------------------------------------------------------------------
+Exercise 4
+
+Pass test cases with ANY random seed parameter '-rs' so far!!!
+************************************************************************
+Testing instructioins:
+1. file code/threads/main.cc, around Line 123
+The sample input is defined from Line 124 to Line 145. Change it if any.
+
+2. file code/threads/makefile, around Line 10
+Test with LOCKS, DEFINES = -DTHREADS -HW1_ELEVATOR
+
+3. rm threads/*.o
+4. make in the foler 'code'
+5. run code/threads/nachos
+************************************************************************
+Output without '-rs'
+
+Elevator ready.
+Passenger 1 wants to from 1 go to 5 floor.
+Passenger 2 wants to from 1 go to 5 floor.
+Passenger 3 wants to from 1 go to 3 floor.
+Passenger 4 wants to from 1 go to 7 floor.
+Passenger 5 wants to from 1 go to 9 floor.
+Passenger 6 wants to from 1 go to 10 floor.
+Passenger 7 wants to from 2 go to 4 floor.
+Passenger 8 wants to from 3 go to 9 floor.
+Passenger 9 wants to from 4 go to 2 floor.
+Passenger 10 wants to from 10 go to 2 floor.
+Passenger 11 wants to from 11 go to 20 floor.
+Passenger 12 wants to from 4 go to 7 floor.
+Passenger 13 wants to from 19 go to 2 floor.
+Passenger 14 wants to from 5 go to 9 floor.
+Passenger 15 wants to from 5 go to 19 floor.
+Passenger 16 wants to from 12 go to 19 floor.
+Passenger 17 wants to from 7 go to 9 floor.
+Passenger 18 wants to from 12 go to 17 floor.
+Passenger 19 wants to from 4 go to 12 floor.
+Passenger 20 wants to from 4 go to 12 floor.
+Passenger 21 wants to from 20 go to 1 floor.
+Elevator arrives on floor 1.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 1 (from 1, to 5) get into floor 1.
+Passenger 2 (from 1, to 5) get into floor 1.
+Passenger 3 (from 1, to 3) get into floor 1.
+Passenger 4 (from 1, to 7) get into floor 1.
+Passenger 5 (from 1, to 9) get into floor 1.
+Elevator closed the door at floor 1.
+Elevator arrives on floor 3.
+Elevator let passengers out.
+Passenger 3 (from 1, to 3) get out of floor 3.
+Elevator let passengers in.
+Passenger 8 (from 3, to 9) get into floor 3.
+Elevator closed the door at floor 3.
+Elevator arrives on floor 5.
+Elevator let passengers out.
+Passenger 1 (from 1, to 5) get out of floor 5.
+Passenger 2 (from 1, to 5) get out of floor 5.
+Elevator let passengers in.
+Passenger 14 (from 5, to 9) get into floor 5.
+Passenger 15 (from 5, to 19) get into floor 5.
+Elevator closed the door at floor 5.
+Elevator arrives on floor 7.
+Elevator let passengers out.
+Passenger 4 (from 1, to 7) get out of floor 7.
+Elevator let passengers in.
+Passenger 17 (from 7, to 9) get into floor 7.
+Elevator closed the door at floor 7.
+Elevator arrives on floor 9.
+Elevator let passengers out.
+Passenger 5 (from 1, to 9) get out of floor 9.
+Passenger 8 (from 3, to 9) get out of floor 9.
+Passenger 14 (from 5, to 9) get out of floor 9.
+Passenger 17 (from 7, to 9) get out of floor 9.
+Elevator let passengers in.
+Elevator closed the door at floor 9.
+Elevator arrives on floor 11.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 11 (from 11, to 20) get into floor 11.
+Elevator closed the door at floor 11.
+Elevator arrives on floor 12.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 16 (from 12, to 19) get into floor 12.
+Passenger 18 (from 12, to 17) get into floor 12.
+Elevator closed the door at floor 12.
+Elevator arrives on floor 17.
+Elevator let passengers out.
+Passenger 18 (from 12, to 17) get out of floor 17.
+Elevator let passengers in.
+Elevator closed the door at floor 17.
+Elevator arrives on floor 19.
+Elevator let passengers out.
+Passenger 15 (from 5, to 19) get out of floor 19.
+Passenger 16 (from 12, to 19) get out of floor 19.
+Elevator let passengers in.
+Passenger 13 (from 19, to 2) get into floor 19.
+Elevator closed the door at floor 19.
+Elevator arrives on floor 20.
+Elevator let passengers out.
+Passenger 11 (from 11, to 20) get out of floor 20.
+Elevator let passengers in.
+Passenger 21 (from 20, to 1) get into floor 20.
+Elevator closed the door at floor 20.
+Elevator arrives on floor 10.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 10 (from 10, to 2) get into floor 10.
+Elevator closed the door at floor 10.
+Elevator arrives on floor 4.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 9 (from 4, to 2) get into floor 4.
+Passenger 12 (from 4, to 7) get into floor 4.
+Elevator closed the door at floor 4.
+Elevator arrives on floor 2.
+Elevator let passengers out.
+Passenger 13 (from 19, to 2) get out of floor 2.
+Passenger 10 (from 10, to 2) get out of floor 2.
+Passenger 9 (from 4, to 2) get out of floor 2.
+Elevator let passengers in.
+Passenger 7 (from 2, to 4) get into floor 2.
+Elevator closed the door at floor 2.
+Elevator arrives on floor 1.
+Elevator let passengers out.
+Passenger 21 (from 20, to 1) get out of floor 1.
+Elevator let passengers in.
+Passenger 6 (from 1, to 10) get into floor 1.
+Elevator closed the door at floor 1.
+Elevator arrives on floor 4.
+Elevator let passengers out.
+Passenger 7 (from 2, to 4) get out of floor 4.
+Elevator let passengers in.
+Passenger 19 (from 4, to 12) get into floor 4.
+Passenger 20 (from 4, to 12) get into floor 4.
+Elevator closed the door at floor 4.
+Elevator arrives on floor 7.
+Elevator let passengers out.
+Passenger 12 (from 4, to 7) get out of floor 7.
+Elevator let passengers in.
+Elevator closed the door at floor 7.
+Elevator arrives on floor 10.
+Elevator let passengers out.
+Passenger 6 (from 1, to 10) get out of floor 10.
+Elevator let passengers in.
+Elevator closed the door at floor 10.
+Elevator arrives on floor 12.
+Elevator let passengers out.
+Passenger 19 (from 4, to 12) get out of floor 12.
+Passenger 20 (from 4, to 12) get out of floor 12.
+Elevator let passengers in.
+Elevator closed the door at floor 12.
+Elevator stoped services.
+No threads ready or runnable, and no pending interrupts.
+Assuming the program completed.
+Machine halting!
+
+Ticks: total 5740, idle 0, system 5740, user 0
+Disk I/O: reads 0, writes 0
+Console I/O: reads 0, writes 0
+Paging: faults 0
+Network I/O: packets received 0, sent 0
+
+Cleaning up...
+************************************************************************
+Output with random seed '-rs 123'
+
+Elevator ready.
+Passenger 1 wants to from 1 go to 5 floor.
+Elevator arrives on floor 1.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 2 wants to from 1 go to 5 floor.
+Passenger 1 (from 1, to 5) get into floor 1.
+Passenger 3 wants to from 1 go to 3 floor.
+Passenger 7 wants to from 2 go to 4 floor.
+Passenger 4 wants to from 1 go to 7 floor.
+Elevator closed the door at floor 1.
+Elevator arrives on floor 1.
+Elevator let passengers out.
+Passenger 5 wants to from 1 go to 9 floor.
+Passenger 6 wants to from 1 go to 10 floor.
+Passenger 8 wants to from 3 go to 9 floor.
+Passenger 9 wants to from 4 go to 2 floor.
+Passenger 11 wants to from 11 go to 20 floor.
+Elevator let passengers in.
+Passenger 12 wants to from 4 go to 7 floor.
+Passenger 2 (from 1, to 5) get into floor 1.
+Passenger 3 (from 1, to 3) get into floor 1.
+Passenger 4 (from 1, to 7) get into floor 1.
+Passenger 5 (from 1, to 9) get into floor 1.
+Passenger 10 wants to from 10 go to 2 floor.
+Elevator closed the door at floor 1.
+Elevator arrives on floor 3.
+Elevator let passengers out.
+Passenger 13 wants to from 19 go to 2 floor.
+Passenger 14 wants to from 5 go to 9 floor.
+Passenger 18 wants to from 12 go to 17 floor.
+Passenger 19 wants to from 4 go to 12 floor.
+Passenger 20 wants to from 4 go to 12 floor.
+Passenger 21 wants to from 20 go to 1 floor.
+Passenger 15 wants to from 5 go to 19 floor.
+Passenger 17 wants to from 7 go to 9 floor.
+Passenger 16 wants to from 12 go to 19 floor.
+Passenger 3 (from 1, to 3) get out of floor 3.
+Elevator let passengers in.
+Passenger 8 (from 3, to 9) get into floor 3.
+Elevator closed the door at floor 3.
+Elevator arrives on floor 5.
+Elevator let passengers out.
+Passenger 1 (from 1, to 5) get out of floor 5.
+Passenger 2 (from 1, to 5) get out of floor 5.
+Elevator let passengers in.
+Passenger 14 (from 5, to 9) get into floor 5.
+Passenger 15 (from 5, to 19) get into floor 5.
+Elevator closed the door at floor 5.
+Elevator arrives on floor 7.
+Elevator let passengers out.
+Passenger 4 (from 1, to 7) get out of floor 7.
+Elevator let passengers in.
+Passenger 17 (from 7, to 9) get into floor 7.
+Elevator closed the door at floor 7.
+Elevator arrives on floor 9.
+Elevator let passengers out.
+Passenger 5 (from 1, to 9) get out of floor 9.
+Passenger 8 (from 3, to 9) get out of floor 9.
+Passenger 14 (from 5, to 9) get out of floor 9.
+Passenger 17 (from 7, to 9) get out of floor 9.
+Elevator let passengers in.
+Elevator closed the door at floor 9.
+Elevator arrives on floor 11.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 11 (from 11, to 20) get into floor 11.
+Elevator closed the door at floor 11.
+Elevator arrives on floor 12.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 18 (from 12, to 17) get into floor 12.
+Passenger 16 (from 12, to 19) get into floor 12.
+Elevator closed the door at floor 12.
+Elevator arrives on floor 17.
+Elevator let passengers out.
+Passenger 18 (from 12, to 17) get out of floor 17.
+Elevator let passengers in.
+Elevator closed the door at floor 17.
+Elevator arrives on floor 19.
+Elevator let passengers out.
+Passenger 15 (from 5, to 19) get out of floor 19.
+Passenger 16 (from 12, to 19) get out of floor 19.
+Elevator let passengers in.
+Passenger 13 (from 19, to 2) get into floor 19.
+Elevator closed the door at floor 19.
+Elevator arrives on floor 20.
+Elevator let passengers out.
+Passenger 11 (from 11, to 20) get out of floor 20.
+Elevator let passengers in.
+Passenger 21 (from 20, to 1) get into floor 20.
+Elevator closed the door at floor 20.
+Elevator arrives on floor 10.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 10 (from 10, to 2) get into floor 10.
+Elevator closed the door at floor 10.
+Elevator arrives on floor 4.
+Elevator let passengers out.
+Elevator let passengers in.
+Passenger 12 (from 4, to 7) get into floor 4.
+Passenger 9 (from 4, to 2) get into floor 4.
+Elevator closed the door at floor 4.
+Elevator arrives on floor 2.
+Elevator let passengers out.
+Passenger 13 (from 19, to 2) get out of floor 2.
+Passenger 10 (from 10, to 2) get out of floor 2.
+Passenger 9 (from 4, to 2) get out of floor 2.
+Elevator let passengers in.
+Passenger 7 (from 2, to 4) get into floor 2.
+Elevator closed the door at floor 2.
+Elevator arrives on floor 1.
+Elevator let passengers out.
+Passenger 21 (from 20, to 1) get out of floor 1.
+Elevator let passengers in.
+Passenger 6 (from 1, to 10) get into floor 1.
+Elevator closed the door at floor 1.
+Elevator arrives on floor 4.
+Elevator let passengers out.
+Passenger 7 (from 2, to 4) get out of floor 4.
+Elevator let passengers in.
+Passenger 19 (from 4, to 12) get into floor 4.
+Passenger 20 (from 4, to 12) get into floor 4.
+Elevator closed the door at floor 4.
+Elevator arrives on floor 7.
+Elevator let passengers out.
+Passenger 12 (from 4, to 7) get out of floor 7.
+Elevator let passengers in.
+Elevator closed the door at floor 7.
+Elevator arrives on floor 10.
+Elevator let passengers out.
+Passenger 6 (from 1, to 10) get out of floor 10.
+Elevator let passengers in.
+Elevator closed the door at floor 10.
+Elevator arrives on floor 12.
+Elevator let passengers out.
+Passenger 19 (from 4, to 12) get out of floor 12.
+Passenger 20 (from 4, to 12) get out of floor 12.
+Elevator let passengers in.
+Elevator closed the door at floor 12.
+Elevator stoped services.
+No threads ready or runnable, and no pending interrupts.
+Assuming the program completed.
+Machine halting!
+
+Ticks: total 6460, idle 130, system 6330, user 0
+Disk I/O: reads 0, writes 0
+Console I/O: reads 0, writes 0
+Paging: faults 0
+Network I/O: packets received 0, sent 0
+
+Cleaning up...
+************************************************************************
+
+The two samples of output prove the correctness of our
+implementation. Within our code, we use several techniques. We not
+only claim the correctness, but also its efficiency. The elevator will
+NOT have to STOP at EVERY FLOOR, NOT have to go the TOP and the GROUND
+FLOOR every time, if no passenger requires.
+
+Synchronization Analysis and Solutions
+Abstract
+Section 1, 2, 3, 4, 5: analysis and solutions on the passengers 
+Section 6, 7, 8: on the very cool implement of elevator thread
+Section 9, 10: other issues we deal with
+
+1. The elevator should start before the passengers get into the
+elevator. There is possibility that passengers arrive at the floor and
+try to get into the elevator before the elevator is ready; or
+passengers arrives too late after the elevator finds no body is
+waiting and stops service. Therefore, we use DIRECTION to represent
+the state of the elevator. DIRECTION has 4 value, UP, DOWN, IDLE and
+CLOSE. When the passenger thread starts, it first check the DIRECTION
+of the elevator. If state is IDLE, the passenger begins to wait for
+the condtion variable ELEVATOR_ACTIVE_CONDITION, which would be
+signaled by the elevator when the elevator is ready. If the state is
+CLOSE, the passenger thread quits immediately and report the elecator
+is closed. Otherwise, the passenger thread is sure about the elevator
+is running, increasing the "waiting_list" corresponding element by
+one, and check at which floor the elevator stops.
+
+code: threadtest.cc Line 339, Line 219
+
+2. The passenger who is waiting outside of the elevator should first
+wait for the elevator broadcast the condition variable
+PASSENGER_IN_CONDITION which means the elevator let the passengers get
+in. Because if there are passengers in the elevator and wants to get
+out, the passengers waiting outside should waits for these people all
+gone, before entering into the elevator. Therefore the elevator should
+first signal the condition variable PASSENGER_OUT_CONDTION to let
+people in the elevator to get out first, then signal
+PASSENGER_IN_CONDTION to let possible people get in.
+
+code: threadtest.cc Line 355, Line 274
+
+3. The passengers should check if there is enough space in the
+elevator, after they check if the floor at which the elevator stops
+(current_floor) equals to the floor they arrive at (at_floor). Before
+this, of course, the passenger should wait PASSENGER_IN_CONDTION. If
+this condtion is satisfied, the passengers check current_floor equlas
+at_floor or not. If not, they waits for the elevator signals the
+condtion variable PASSENGER_IN_CONDTION again. If current_floor equals
+at_floor, they check the available space in the elevator, If not
+enough space, they begins to wait for new PASSENGER_IN_CONDTION
+available. Otherwise, the passengers update the record make the
+corresponding element of waiting_list decrease by one, and going_list
+increase by one.
+
+code: threadtest.cc Line 362
+
+4. Before the passengers are waiting in the elevator, update all the
+record information, they should not release the elevator lock. If
+"signal, acquires" pairs of statements are inserted into between the
+passenger finish waiting outside of the elevator and waiting in the
+elevator. The bad situation will occure. It is possible that the
+passengers the number of which is greater than available space will
+swarm into elevator. 
+
+code: threadtest.cc Line 364
+
+5. In the elevator, the passengers should wait for the condtion
+PASSENGER_OUT_CONDTION first. If the condition is satisfied, the
+passengers will check their to_floor equlas the current_floor or
+not. If not, they wait for PASSENGER_OUT_CONDTION available again. If
+current_floor equals to_floor, they get out of the elevalor, and
+decrease the corresponding element of going_list by one.
+
+code: threadtest.cc Line 378
+
+6. There are 3 fancy techniques using for the elevator. The elevator
+first finds out the next floor it should go, say x-floor. Suppose the
+elevator is going UP now, it will pick up all passengers who want to
+go UP as much as possible, only if there is enough space in the
+elevator and the passengers' at_floor is greater or equal to the
+current_floor of the elevator. The elevator will also drop the
+passengers in the elevator who want to go UP too. Therefore, the
+next_floor they should go is computed based on which 'nearest' above
+floor has passengers want to go UP, or passengers in the elevator want
+to exit. The elevator will NOT have to STOP at EVERY floor. If no
+passenger made UP requirements, the elevator should move down to pick
+up the passengers who want to go down no matter whether they are in or
+not in the elevator.
+
+The sequence of the elevator is UP DOWN UP DOWN .... Of course, the
+elevator will NOT have to go the TOP or the GROUND FLOOR, and NOT have
+to stop EVERY FLOOR. Because of its searching for the next floor
+according to the two arrays, "waiting_list" and "going_list".
+
+We use two dynamically allocated array to keep tracking of the number
+of waiting passengers. One is "waiting_list", the other is
+"going_list". "waiting_list" is used for keep the number of passengers
+waiting out of the elevator for each floor. "going_list" is used for
+keep the number of passengers in the elevator for each floor they want
+to go. Specifically, $i$-th element of these two arrays represent for
+the number of passengers waiting on the $i$-th floor and going to the
+$i$-th floor. The usage of the arrays have beed stated in the above
+setions. The cool part is that the length of these two arrays is NOT
+equal to the number of floors, which is because of the strategy of the
+elevar running.
+
+To implement the order of the elevator moving. We expand the floors to
+the double of the number for floors for the "waiting_list" and
+"going_list". The first part of the array corresponds the number of
+passengers who want to go UP. The other half part corresponds the
+number of passengers who want to go DOWN. For example, if there are 5
+floors, 1,2,3,4,5.
+The index of the two arrays are
+0 1 2 3 4 5 6 7 8
+The corresponding of real floor are
+0 1 2 3 4 5 4 3 2
+Imaging a pointer of current_floor is moving on the array to pick the
+number of waiting passengers, when the elevator is going up, the
+pointer will move from 0 1 2 3 4 5 6 7 8. When it is moving from 0 to
+5, it actually pick the number of waiting passengers who want to go
+UP. When it is moving from 5 to 8, it is actually get the number of
+waiting passengers who wants go DOWN. Therefore, the last half of
+arrays index the floor decreasingly. The first half of arrays index
+floor increasingly. When the elevator move DOWN to the ground floor,
+the index will be reset by mod operation.
+
+Therefore, when a passenger register on the waiting_list, if he wants
+to go UP, he register on the first half part of the array; otherwise,
+he should register on the last half part of the arry using the above
+appropriate mapping. When going UP, at_floor and to_floor does not
+change the value. When going DOWN, it is mapped to 2*max_floors minus
+the values of at_floor and to_floor.
+
+code: threadtest.cc Line 215 "ElevatorThread(int)"
+Line 172, 187
+
+7. The work flow of the elevator as follows. First, it get the
+next_floor it should go. If current_floor that the elevator stops at
+equals to next_floor, AND waiting_list[current_floor] and
+going_list[current_floor] are both zero. That means no body is waiting
+in the elevator or outside of it. The elevator will be closed. Of
+course, there is possibility that because of random seed '-rs', the
+passenger thread will be started later then the elevator is
+closed. The passenger will report the elevator's stats. 
+
+Second, if waiting_list[current_floor] or going_list[current_floor] is
+not zero, but current_floor == next_floor. That means the elevator
+should open the door. First it should let the passengers get out of
+the elevator for making room. Then it should let the passengers get
+into the elevator. Finally, it closed the door. All of the actions are
+done via Condition variables, PASSENGER_OUT_CONDITION and
+PASSENGER_IN_CONDTION.
+
+Third, if current_floor != next_floor, that means the elevator should
+move UP or DOWN, which depends on if current < next_floor.
+
+code: threadtest.cc Line 215 "ElevatorThread(int)"
+
+8. When use condition variables PASSENGER_IN_CONDTION and
+PASSENGER_OUT_CONDTION, we find a challenging issue. For example, when
+PASSENGER_IN_CONDTION is signaled, it will notify all the waiting
+passengers. The passengers may be the people who is right on the floor
+at which the elevator stops; and there is available space in the
+elevator. HOWEVER, the condition variables is Mesa-style, not
+Hoare-style. The elevator thread may continues to execute before all
+threads waiting on the Condtion variables acquire the lock and do
+stuff. That means before all eligible passengers get into the
+elevator, the elevator may have gone away.
+
+To deal with this issue, one can implement Hoare-style condition
+variables, but it is very difficult. We use another condition variable
+called FINISH_BROADCAST_CONDTION. For example when using
+PASSENGER_IN_CONDTION. Before the elevator uses Broadcast() on
+the condition variable, it sets the broadcast_count to the number of
+waiting passengers outside the elevator. After Broadcast(), the
+elevator thread wait for FINISH_BRAODCAST_CONDTION for all the waiting
+passengers responds the PASSENGER_IN_CONDTION. Every waiting passenger
+outside of the elevator on the PASSENGER_IN_CONDTION will be awaken
+one by one. The first thing it will do is to decrease the variable
+broadcast_count by one. When the last thread who make the variable to
+0, it signal FINISH_BROAD_CAST to let the elevator thread move on.
+
+code: threadtest.cc Line 264, Line 276
+
+9. We do not use 'new' and 'delete' to dynamically allocate/deallocate
+space and construct/destroy condition variables on the heap space. It
+seems that these operations are not atomic. When we use them in the
+program, they destroy the memory space and report segmanet
+faults. Therefore, I simply use global variables.
+
+code: threadtest.cc Line 151
+
+10. We also tried to implement ELEVATOR using semaphores, but this would
+require to implement a two-stage reusable turnstile using 2 semaphores
+for the waiting list of the passengers on the floor. It is rather
+complicated.

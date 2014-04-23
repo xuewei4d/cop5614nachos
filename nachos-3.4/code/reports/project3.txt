@@ -1,0 +1,94 @@
+Project 3
+
+------------------------------------------------------------------------
+New Class: SOF, POF, SOFMgr
+Modified Class/File: exception.cc, PCB, AddrSpace
+
+SOF: System Open File class
+This class stores the filename, the pointer to OpenFile class, the
+counter of how many threads have accessed the file which SOF
+represnets, and a Lock which guarantee the sycnchorization of reading
+and writing files.
+
+SOFMgr: Manager of SOF class
+This class manage all the SOF class that the system have accessed to
+in an internal array. It also provides several methods:
+1. FindSOFByName: finds a specific SOF variable by name
+2. GetNumFreeSOF: returns the number of free slots in the SOF array.
+3. CreateSOF: creates a SOF class using the input filename.
+4. IncSOFCounter/DecSOFCounter: increases/decreases the counter of one SOF class.
+5. RemoveSOF: decrease a SOF class's counter. if it is zeros, the SOF
+class would be removed from the system.
+6. ReadSOF/WriteSOF: reads/writes the content of the buffer into the OpenFile
+variable with specific size and offset to the file
+
+POF: Process Open File calss
+This class contains the filename, the SOF index to the array in the
+SOFmgr class, and the offset.
+
+PCB: 
+It has an array of POF class, which represents the POF variables that
+the thread has accessed to. The additional methods are the following,
+1. FindPOFByName: returns the index of POF variable in the internal array.
+2. GetNumFreePOF: returns how many empty slots in the array.
+3. CreatePOF: uses the index of SOF class in SOFMgr class and filename
+to create a new POF varibale in the internal array.
+4. RemovePOF: removes a POF
+5. GetPOFoffse/SetPOFoffset: get/set methods to the offset
+6. GetPOFsofIndex: get the index of SOF variable in the SOFMgr class
+
+------------------------------------------------------------------------
+Create Systemcall:
+The function first reads the address of the file
+path. AddrSpace.ReadString reads the path into the temperary
+buffer. Then fileSystem.Create is called.
+
+Open Systemcall:
+After the function gets the filepath address and read it into the
+buffer. The function test whether there is enough space to create new
+SOF and POF class. If SOFMgr does not contain this file, SOFMgr would
+create a new one. If SOFMgr has it, then PCB class would create a new
+POF class and then increase the counter of the corresponding SOF
+variable in the SOFMgr.
+
+Close Systemcall:
+The function simply remove POF variable in the the array of POF in the
+PCB class, then decrease the counter of the corresponding SOF class in
+SOFMgr. If the counter reaches 0, it would delete the SOF class.
+
+Write Systemcall:
+The function first reads the virtual address of the buffer, the size
+of the buffer, and the index of POF variable in the PCB. If pofIndex
+equlas ConsoleOutput, it simply print out the buffer. If pofIndex is
+greater than 2, it would invoke SOFMgr's WriteSOF function to write
+the content in the virtual address into buffer. Finally set the
+offset.
+PS: Since we set the index of POF starting from 0. However,
+ConsoleInput and ConsoleOutput is 0 and 1. We output the index of POF
+to user space with increasing by 2, and decreasing by 2 when in the
+WriteSystemcall and ReadSystemcall.
+
+ReadSystemcall
+The function behaviors similarly to the WriteSystemcall.
+
+------------------------------------------------------------------------
+Test file
+#include "syscall.h"
+
+int main() {
+  OpenFileId ofi;
+  char buffer[5];
+  ofi = Open("test/filetestfile");
+  Read(buffer, 5, ofi);
+  Write(buffer, 5, ConsoleOutput);
+  Close(ofi);
+  return 0;
+}
+
+Loaded Program: [352] code |  [32] data | [0] bss
+System Call: [0] invoked Open
+System Call: [0] invoked Read
+System Call: [0] invoked Write
+hello
+System Call: [0] invoked Close
+System Call: [0] invoked Exit

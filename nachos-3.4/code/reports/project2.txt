@@ -1,0 +1,251 @@
+Project 2 Report
+
+------------------------------------------------------------------------
+In order to support multiprogramming system calls, we added serveral
+new classes: process control block(userprog/PCB), memory management
+class(userprog/MemoryMgr) and process manegement
+class(userprog/ProcessMgr) to the current system. We modified
+userprog/AddrSpace, userprog/Exception, thread/list, thread/scheduler
+class as well.
+
+
+PCB: 
+Each thread in Nachos is associated with a process control block.
+It contains PID number, pointer of Thread class, PCB of its parent
+process, a list PCBs of children processes and possible the return
+value of child thread. To manager the PCB of its parent and children thread. PCB class
+provides methods of adding children PCB, removing children PCB,
+removing its parent's children PCB, removing children's parent PCB,
+and get child PCB by its PID.
+
+MemoryMgr:
+The memory manager class use bit BitMap to track all 32 pages of
+Nachos system. It provides methods of allocating unused pages to
+threads and deallocating them for reuse.  
+
+ProcessMgr: 
+The PCBManager class maintains a list of pointers of PCBs in Nachos
+and use BitMap to easily keep track of PIDs. It provides methods of
+creating and removing PCBs, returning PCB by PID.
+
+threads/system.cc system.h
+The global variable MemoryMgr and ProcessMgr is declared in the head
+file and initiated when the system is up.
+
+AddrSpace:
+thisPCB data member:
+Since every thread class is associated with a AddrSpace class, we
+added a pointer of PCB associated with the AddrSpace class.
+
+userRegisters data member:
+To save and restore machine registers for Fork systemcall.
+
+AddrSpace constructor: 
+In order to do multi-threading, each thread's memory page may be
+mapping to inconsective physical memory page. We modified the part of
+allocating physical pages by requesting a page from a global MemoryMgr
+variable and storing them into its PageTable. We also use ReadFile
+function to rewrite the part of loading code and data segments.
+
+AddrSpace ReadFile:
+This method reads and load any segment from file to physical pages
+according to its PageTable.
+
+AddrSpace ReleaseMemory:
+This method deallocates physical pages to the global memory manager 
+MemoryMgr.
+
+AddrSpace Fork:
+The method is used for system fork. It creates a new AddrSpace
+variable and allocated the same amount of pages for the new variable,
+and the PageTable as well. It also copy the original memory to the new
+memory space.
+
+AddrSpace Translate:
+The method translates a virtual address to the physical address
+according to addrspace's page table. Meanwhile, it check whether the
+virtual address is valid.
+
+AddrSpace SaveUserRegister and RestoreUserRegisters
+The methods are just used to save and restore registers.
+
+AddrSpace ReplaceMemory:
+The method is used for Exec. It deallocates the old PageTable and
+physical page. It allocates new PageTable and physical pages from the
+global memory manager.
+
+progtest.cc
+In the StartProcess, when Nachos creates the first thread, it also
+needs a new PCB. We add several lines in that function.
+
+list.cc and list.h
+We added two methods, Search and RemoveByElement. They can iterate
+over ListElement one by one, and return or remove if some ListElement
+match the parameter. They are used for Kill Systemcall.
+
+Scheduler.cc
+We added one method to remove a thread from ready list for Kill system call.
+
+Exception: 
+Fork system call:
+At first, we  save the machine register of the current process, then
+we create a new PCB from ProcessMgr and a new AddrSpace allocating
+PageTable and physical page as well. Then we associate PCB, AddrSpace
+and Thread each other if necessary, also set parentPCB and childrenPCB
+in PCBs. After reading machien register 4 and setting the new PC by
+using register 4, we let child AddrSpace to save the machine
+registers. Then we use Thread->Fork with a Dummy function which
+restore the machine registers when the child thread starts. In the
+parent thread, we then restore the machine registers and write the
+child PID to register 2.
+
+
+
+Exec system call: 
+First the function attempts to open executable file from the given
+path by a help function which reads a data from user space to the
+buffer. If successful, the current process' addressspace is replaced
+by AddrSpace->ReplaceMemory to have the executable information. This
+includes initiating the machine registers and restoring PageTable.
+
+
+Exit system call:
+At first we check if current process has children, if so set their
+parent pointers to null. If process has parent, this PCB must be
+removed from the parent's children PCB list. And set this PCB's parent
+PCB to NULL. Then we remove this PCB from the global ProcessMgr.  Free
+the memory and remove it from page table. Finally, we call
+Thread->finish() to exit.
+
+
+Yield system call:
+we simply call Thread->Yield.
+
+
+Join system call: 
+First we check the killed PID is valid. Then currentPCB tries to find
+the child PCB in its chilren PCB list. IF succeed, the current thread
+check the joined thread whether has not exit by querying to the global
+processMgr, and then the currentThread will Yield itself. It loops
+until the joined thread exits.
+
+
+Kill system call: 
+First we check the called PID is valid, if the
+thread of killed PID is the same to the current thread. If so, we
+simply call Exit system call. After we get the PCB of to be killed
+thread from the global ProcessMgr, we set the parentPCB and its
+parent's children PCB list and its children's PCB's parentPCB pointer
+if necessary. Finally, we call scheduler->RemoveThread which calls
+List->RemoveByElement to remove the killed thread from ReadList. The
+former two methods are external.
+
+------------------------------------------------------------------------
+How to run:
+1. Go to under the folder 'code'
+2. make
+3. userprog/nachos -x test/fork
+4. userprog/nachos -x test/ford -d s
+
+Please be careful, when we test the exec.c, the path specificed in the
+function usememory has been changed, becasue we run nachos under the
+folder 'code'. Using the parameter '-d s' to get more debug information.
+
+------------------------------------------------------------------------
+The results:
+Fork Test:
+Loaded Program: [576] code |  [16] data | [0] bss
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [13] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exit
+Process [1] exited with status [100]
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [13] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exit
+Process [1] exited with status [100]
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [13] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exit
+Process [1] exited with status [100]
+System Call: [0] invoked Exit
+Process [0] exited with status [4]
+
+Exec Test:
+Loaded Program: [400] code |  [16] data | [0] bss
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [12] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exec
+Exec Program: [1] loading [test/memory]
+Loaded Program: [368] code |  [0] data | [512] bss
+System Call: [1] invoked Exit
+Process [1] exited with status [0]
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [12] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exec
+Exec Program: [1] loading [test/memory]
+Loaded Program: [368] code |  [0] data | [512] bss
+System Call: [1] invoked Exit
+Process [1] exited with status [0]
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [12] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exec
+Exec Program: [1] loading [test/memory]
+Loaded Program: [368] code |  [0] data | [512] bss
+System Call: [1] invoked Exit
+Process [1] exited with status [0]
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [12] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exec
+Exec Program: [1] loading [test/memory]
+Loaded Program: [368] code |  [0] data | [512] bss
+System Call: [1] invoked Exit
+Process [1] exited with status [0]
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [12] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exec
+Exec Program: [1] loading [test/memory]
+Loaded Program: [368] code |  [0] data | [512] bss
+System Call: [1] invoked Exit
+Process [1] exited with status [0]
+System Call: [0] invoked Exit
+Process [0] exited with status [0]
+
+Kill Test:
+Loaded Program: [384] code |  [0] data | [0] bss
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [11] pages memory
+System call: [0] invoked Yield
+System call: [1] invoked Yield
+System Call: [0] invoked Kill
+Process [0] killed process [1]
+System Call: [0] invoked Exit
+Process [0] exited with status [0]
+
+Join Test:
+Loaded Program: [656] code |  [16] data | [0] bss
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0x16c] with [14] pages memory
+System call: [0] invoked Yield
+System Call: [1] invoked Exit
+Process [1] exited with status [1]
+System Call: [0] invoked Fork
+Process [0] Fork: start at address [0xe0] with [14] pages memory
+System call: [0] invoked Yield
+System call: [1] invoked Yield
+System Call: [0] invoked Fork
+System call: [0] invoked Yield
+System Call: [1] invoked Exit
+Process [1] exited with status [102]
+System Call: [0] invoked Join
+System Call: [0] invoked Join
+System Call: [0] invoked Join
+System Call: [0] invoked Exit
+Process [0] exited with status [3]
